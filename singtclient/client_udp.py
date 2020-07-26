@@ -12,8 +12,8 @@ from twisted.internet.protocol import DatagramProtocol
 from twisted.internet.task import LoopingCall
 import sounddevice as sd
 
-from singt.jitter_buffer import JitterBuffer
-from singt.udp_packetizer import UDPPacketizer
+from singtcommon import JitterBuffer
+from singtcommon import UDPPacketizer
 
 from twisted.logger import Logger
 

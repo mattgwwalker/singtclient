@@ -1,13 +1,13 @@
 from twisted.web import server
 from twisted.web.static import File
 
-from singt.eventsource import EventSource
-from singt.client.client_web_command import CommandResource
+from singtcommon import EventSource
+from singtclient.client_web_command import CommandResource
 
 def create_web_interface(reactor):
     # TEST
     import pkg_resources
-    DATA_PATH = pkg_resources.resource_filename('singt', 'client/www')
+    DATA_PATH = pkg_resources.resource_filename('singtclient', 'www')
 
     
     # Create the web resources

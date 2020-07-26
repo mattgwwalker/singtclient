@@ -5,8 +5,8 @@ from twisted.web import server, resource
 from twisted.internet.endpoints import TCP4ClientEndpoint, connectProtocol
 from twisted.logger import Logger
 
-from singt.client.client_tcp import TCPClient
-from singt.client.client_udp import UDPClient
+from singtclient.client_tcp import TCPClient
+from singtclient.client_udp import UDPClient
 
 # Start a logger with a namespace for a particular subsystem of our application.
 log = Logger("client_web_command")

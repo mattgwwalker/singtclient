@@ -3,7 +3,7 @@ wheel:
 
 pex:
 	pip freeze > pip_freeze.txt
-	pex -o singt.pex -r pip_freeze.txt
+	pex -o singtclient.pex -e singtclient:go  -r pip_freeze.txt
 
 clean:
 	rm -f singt.pex

@@ -11,10 +11,13 @@ from twisted.logger import Logger, LogLevel, LogLevelFilterPredicate, \
     textFileLogObserver, FilteringLogObserver, globalLogBeginner
 
 
-from singt.client.client_tcp import TCPClient
-from singt.client.client_udp import UDPClientTester
+from singtclient.client_tcp import TCPClient
+#from singtclient.client_udp import UDPClientTester
     
 if __name__=="__main__":
+    print("test")
+    exit()
+    
     # Ensure the user has called this script with the correct number
     # of arguments.
     if len(sys.argv) != 3:
@@ -31,33 +34,32 @@ if __name__=="__main__":
     address = sys.argv[1]
     in_filename = sys.argv[2]
 
-    # Setup logging
-    logfile = open(f"client-{tester_id}.log", 'w')
-    logtargets = []
+    # # Setup logging
+    # logfile = open(f"client-{tester_id}.log", 'w')
+    # logtargets = []
 
-    # Set up the log observer for stdout.
-    logtargets.append(
-        FilteringLogObserver(
-            textFileLogObserver(sys.stdout),
-            predicates=[LogLevelFilterPredicate(LogLevel.debug)] # was: warn
-        )
-    )
+    # # Set up the log observer for stdout.
+    # logtargets.append(
+    #     FilteringLogObserver(
+    #         textFileLogObserver(sys.stdout),
+    #         predicates=[LogLevelFilterPredicate(LogLevel.debug)] # was: warn
+    #     )
+    # )
 
-    # Set up the log observer for our log file. "debug" is the highest possible level.
-    logtargets.append(
-        FilteringLogObserver(
-            textFileLogObserver(logfile),
-            predicates=[LogLevelFilterPredicate(LogLevel.debug)]
-        )
-    )
+    # # Set up the log observer for our log file. "debug" is the highest possible level.
+    # logtargets.append(
+    #     FilteringLogObserver(
+    #         textFileLogObserver(logfile),
+    #         predicates=[LogLevelFilterPredicate(LogLevel.debug)]
+    #     )
+    # )
 
-    # Direct the Twisted Logger to log to both of our observers.
-    globalLogBeginner.beginLoggingTo(logtargets)
+    # # Direct the Twisted Logger to log to both of our observers.
+    # globalLogBeginner.beginLoggingTo(logtargets)
 
-    # Start a logger with a namespace for a particular subsystem of our application.
-    log = Logger("client_tester")
+    # # Start a logger with a namespace for a particular subsystem of our application.
+    # log = Logger("client_tester")
 
-    
     # TCP
     # ===
     address = sys.argv[1]

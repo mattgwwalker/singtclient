@@ -10,7 +10,7 @@ from twisted.internet import reactor
 from twisted.logger import Logger, LogLevel, LogLevelFilterPredicate, \
     textFileLogObserver, FilteringLogObserver, globalLogBeginner
 
-from singt.client import client_web
+from singtclient.client_web import create_web_interface
 
 # Setup logging
 logfile = open(f"client.log", 'w')
@@ -47,7 +47,7 @@ def start():
     # Web Interface
     # =============
 
-    web_server, eventsource_resource = client_web.create_web_interface(reactor)
+    web_server, eventsource_resource = create_web_interface(reactor)
     reactor.listenTCP(8000, web_server)
     
     # Reactor
@@ -61,16 +61,16 @@ def start():
 
 
 if __name__=="__main__":
-    # Ensure the user has called this script with the correct number
-    # of arguments.
-    if len(sys.argv) != 3:
-        print("Usage:")
-        print(f"   {sys.argv[0]} ip-address name")
-        exit()
+    # # Ensure the user has called this script with the correct number
+    # # of arguments.
+    # if len(sys.argv) != 3:
+    #     print("Usage:")
+    #     print(f"   {sys.argv[0]} ip-address name")
+    #     exit()
 
-    # Extract values for the IP address and the user's name
-    address = sys.argv[1]
-    username = sys.argv[2]
+    # # Extract values for the IP address and the user's name
+    # address = sys.argv[1]
+    # username = sys.argv[2]
 
-    run_client(address, username)
+    start()#address, username)
     
