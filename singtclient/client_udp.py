@@ -14,6 +14,7 @@ import sounddevice as sd
 
 from singtcommon import JitterBuffer
 from singtcommon import UDPPacketizer
+from singtcommon import AutomaticGainControl
 
 from twisted.logger import Logger
 
@@ -70,6 +71,9 @@ class UDPClientBase(DatagramProtocol):
 class UDPClient(UDPClientBase):
     def __init__(self, host, port):
         super().__init__(host, port)
+
+        # Initialise the automatic gain control
+        self._agc = AutomaticGainControl()
 
         # Create a Stream
         self._stream = sd.Stream(
@@ -130,8 +134,11 @@ class UDPClient(UDPClientBase):
             # Input
             # =====
 
-            if indata is None:
-                print("************************ indata is None ***************")
+            # Apply automatic gain control, this will improve the
+            # quality of the audio that's sent.
+            self._acg.apply(indata)
+            print("gain:", self._agc.gain)
+
             # Convert from float32 to int16
             indata_int16 = indata * (2**15-1)
             indata_int16 = indata_int16.astype(numpy.int16)
