@@ -1,2 +1,2 @@
 recursive-include singtclient/www *
-recursive-include sounds *
+recursive-include singtclient/sounds *
