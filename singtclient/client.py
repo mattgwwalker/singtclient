@@ -2,6 +2,7 @@ import copy
 import random
 import sys
 import threading
+import webbrowser
 
 import art
 import numpy
@@ -48,7 +49,12 @@ def start():
     # =============
 
     web_server, eventsource_resource = create_web_interface(reactor)
-    reactor.listenTCP(8000, web_server)
+    port = 8000
+    reactor.listenTCP(port, web_server)
+
+    def open_browser():
+        webbrowser.open("http://127.0.0.1:"+str(port))
+    reactor.callWhenRunning(open_browser)
     
     # Reactor
     # =======
