@@ -61,7 +61,7 @@ SINGT.wireup.page_connect = function(){
             }
         },
         error: function(first) {
-            console.log("ERROR in is_connected", first);
+            console.log("ERROR with command 'is_connected'", first);
         }
     });
 };
@@ -106,52 +106,22 @@ SINGT.wireup.forms = function() {
             type: "POST",
             url: "command",
             data: json_command,
-            contentType: "text/plain",
-            success: function(msg) {
-                console.log("Success?");
-                result = JSON.parse(msg)
+            dataType: "json", // type from server
+            contentType: "application/json", // type in this request
+            success: function(result) {
                 if (result["result"] == "success") {
-                    console.log("Success!");
                     $("#card_connect").addClass("d-none");
                     $("#card_connected").removeClass("d-none");
                 }
                 else {
-                    console.log("No success :o(");
-                    console.log(msg);
+                    console.log("WARNING Unexpectedly missing 'result' from host");
+                    console.log(result);
                 }
             },
             error: function() {
-                console.log("ERROR");
+                console.log("ERROR with command 'connect'");
             }
         });
-            
-            
-        
-        /*
-        $.ajax({
-            url: 'command',
-            type: 'POST',
-            data: json_command,
-            dataType: "text/plain", //"json", // return value's data type
-            processData: false,
-            contentType: "text/plain", //false,//"application/json",
-            cache: false,
-            success: function(msg) {
-                console.log(msg);
-            },
-            error: function(jqXHR, st, error) {
-                // Hopefully we should never reach here
-                //console.log(jqXHR);
-                //console.log(st);
-                //console.log("error:",error);
-                //console.log("status:",st);
-                alert("FAILED to send command to connect to server");
-            }
-        });
-
-        */
-
-
     })
     $("#backing_track_cancel").click(function(){
         $("#show_upload_form").parent().removeClass('d-none');
