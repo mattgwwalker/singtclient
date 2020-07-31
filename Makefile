@@ -1,4 +1,4 @@
-wheel:
+wheel: clean
 	python setup.py build bdist_wheel
 
 pex:

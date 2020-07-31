@@ -14,9 +14,10 @@ pex = "*"
 art = "*"
 pyinstaller = "*"
 setuptools = "*"
-singtclient = {path = "./dist/singtclient-0.5.4-py3-none-any.whl"}
-singtcommon = {path = "./../singtcommon/dist/singtcommon-0.5-py3-none-any.whl"}
 pyogg = {path = "./../PyOgg/PyOgg/dist/PyOgg-0.6.14a2-py2.py3-none-any.whl"}
+pip = "*"
+singtclient = {editable = true, path = "."}
+singtcommon = {editable = true, path = "./../singtcommon"}
 
 [requires]
 python_version = "3.7"
