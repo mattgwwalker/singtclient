@@ -122,6 +122,9 @@ SINGT.wireup.forms = function() {
                 console.log("ERROR with command 'connect'");
             }
         });
+
+        // Stops form button from reloading page
+        return false;
     })
     $("#backing_track_cancel").click(function(){
         $("#show_upload_form").parent().removeClass('d-none');

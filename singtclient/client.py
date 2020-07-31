@@ -1,4 +1,5 @@
 import copy
+from pathlib import Path
 import random
 import sys
 import threading
@@ -13,35 +14,37 @@ from twisted.logger import Logger, LogLevel, LogLevelFilterPredicate, \
 
 from singtclient.client_web import create_web_interface
 
-# Setup logging
-logfile = open(f"client.log", 'w')
-logtargets = []
-
-# Set up the log observer for stdout.
-logtargets.append(
-    FilteringLogObserver(
-        textFileLogObserver(sys.stdout),
-        predicates=[LogLevelFilterPredicate(LogLevel.debug)] # was: warn
-    )
-)
-
-# Set up the log observer for our log file. "debug" is the highest possible level.
-logtargets.append(
-    FilteringLogObserver(
-        textFileLogObserver(logfile),
-        predicates=[LogLevelFilterPredicate(LogLevel.debug)]
-    )
-)
-
-# Direct the Twisted Logger to log to both of our observers.
-globalLogBeginner.beginLoggingTo(logtargets)
-
-# Start a logger with a namespace for a particular subsystem of our application.
-log = Logger("client")
-
-
 
 def start():
+    # Setup logging
+    log_filename = Path.home() / "singt.log"
+    logfile = open(log_filename, 'w')
+    logtargets = []
+
+    # Set up the log observer for stdout.
+    logtargets.append(
+        FilteringLogObserver(
+            textFileLogObserver(sys.stdout),
+            predicates=[LogLevelFilterPredicate(LogLevel.debug)] # was: warn
+        )
+    )
+
+    # Set up the log observer for our log file. "debug" is the highest possible level.
+    logtargets.append(
+        FilteringLogObserver(
+            textFileLogObserver(logfile),
+            predicates=[LogLevelFilterPredicate(LogLevel.debug)]
+        )
+    )
+
+    # Direct the Twisted Logger to log to both of our observers.
+    globalLogBeginner.beginLoggingTo(logtargets)
+
+    # Start a logger with a namespace for a particular subsystem of our application.
+    log = Logger("client")
+
+
+
     title = art.text2art("Singt")
     print(title)
 

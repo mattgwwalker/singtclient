@@ -12,12 +12,9 @@ from twisted.logger import Logger, LogLevel, LogLevelFilterPredicate, \
 
 
 from singtclient.client_tcp import TCPClient
-#from singtclient.client_udp import UDPClientTester
+from singtclient.client_udp import UDPClientTester
     
-if __name__=="__main__":
-    print("test")
-    exit()
-    
+if __name__=="__main__":    
     # Ensure the user has called this script with the correct number
     # of arguments.
     if len(sys.argv) != 3:

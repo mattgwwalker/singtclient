@@ -32,9 +32,8 @@ class CommandResource(resource.Resource):
 
         command_handler = self.commands[command]
 
-        command_handler(content, request)
+        return command_handler(content, request)
 
-        return server.NOT_DONE_YET
 
     def _register_commands(self):
         self.register_command("connect", self._command_connect)
@@ -48,7 +47,7 @@ class CommandResource(resource.Resource):
             True: "connected",
             False: "not connected"
         }
-        
+
         result = {
             "result": "success",
             "connected": self._connected
@@ -56,8 +55,8 @@ class CommandResource(resource.Resource):
 
         request.setResponseCode(200)
         #request.responseHeaders.addRawHeader(b"content-type", b"application/json")
-        request.write(json.dumps(result).encode("utf-8"))
-        request.finish()
+        return json.dumps(result).encode("utf-8")
+
         
     def _command_connect(self, content, request):
         username = content["username"]
@@ -74,13 +73,16 @@ class CommandResource(resource.Resource):
             self._connected = True
             request.setResponseCode(200)
             result = {"result": "success"}
-            request.write(json.dumps(result).encode("utf-8"))
+            result_json = json.dumps(result).encode("utf-8")
+            request.write(result_json)
+            print("request.finished:", request.finished)
             request.finish()
         
         def on_error(failure):
-            print("An error occurred:", failure)
-            request.setResponseCode(999)
+            print("ERROR An error occurred:", failure)
+            request.setResponseCode(500)
             request.write(b"An error occurred:" + str(failure).encode("utf-8"))
+            print("request.finished:", request.finished)
             request.finish()
 
         d.addCallback(on_success)
@@ -88,5 +90,7 @@ class CommandResource(resource.Resource):
 
         # UDP
         # 0 means any port, we don't care in this case
-        udp_client = UDPClient(address, 12345)
-        self._reactor.listenUDP(0, udp_client)
+        # udp_client = UDPClient(address, 12345)
+        # self._reactor.listenUDP(0, udp_client)
+
+        return server.NOT_DONE_YET

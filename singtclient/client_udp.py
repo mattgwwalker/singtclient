@@ -3,9 +3,11 @@ import struct
 import wave
 
 import numpy
-from pyogg import OpusEncoder
+import pkg_resources
 from pyogg import OpusBufferedEncoder
 from pyogg import OpusDecoder
+from pyogg import OpusEncoder
+from pyogg import OpusFile
 from twisted.internet import reactor
 from twisted.internet import task
 from twisted.internet.protocol import DatagramProtocol
@@ -72,15 +74,12 @@ class UDPClient(UDPClientBase):
     def __init__(self, host, port):
         super().__init__(host, port)
 
-        # Initialise the automatic gain control
-        self._agc = AutomaticGainControl()
-
         # Create a Stream
         self._stream = sd.Stream(
             samplerate = 48000,
             channels = 1,
             dtype = numpy.float32,
-            latency = "low",#100/1000,
+            latency = 20/1000,
             callback = self._make_callback()
         )
 
@@ -102,7 +101,20 @@ class UDPClient(UDPClientBase):
 
         samples_per_second = 48000 # FIXME
         frame_size_ms = 20 # ms FIXME
+
+        # Sound to indicate to user session has started
+        filename = pkg_resources.resource_filename(
+            "singtclient",
+            "sounds/discussion.opus"
+        )
+        sound = OpusFile(filename).as_array()
+        sound = numpy.mean(sound, axis=0) # Make mono
+        sound_played = False
+        sound_pos = 0
         
+        # Automatic gain control dedicated to callback
+        agc = AutomaticGainControl()
+
         # OpusDecoder dedicated to callback
         opus_decoder = OpusDecoder()
         opus_decoder.set_sampling_frequency(samples_per_second)
@@ -125,6 +137,7 @@ class UDPClient(UDPClientBase):
             nonlocal jitter_buffer
             nonlocal buf
             nonlocal started
+            nonlocal sound_pos, sound_played
 
             #print("in callback")
             
@@ -136,8 +149,8 @@ class UDPClient(UDPClientBase):
 
             # Apply automatic gain control, this will improve the
             # quality of the audio that's sent.
-            self._acg.apply(indata)
-            print("gain:", self._agc.gain)
+            agc.apply(indata)
+            #print("gain:", agc.gain)
 
             # Convert from float32 to int16
             indata_int16 = indata * (2**15-1)
@@ -210,6 +223,16 @@ class UDPClient(UDPClientBase):
 
             # This is INEFFICIENT and could be improved
             buf = buf[frames:]
+
+            # If we haven't finished playing the sound, mix it in.
+            # TODO: This could be improved by fading in the audio signal
+            if not sound_played:
+                if sound_pos+frames < len(sound):
+                    outdata[:] += sound[sound_pos: sound_pos+frames]
+                else:
+                    #outdata[:len(sound)-sound_pos] += sound[sound_pos: len(sound)]
+                    sound_played = True
+                sound_pos += frames
             
         return callback
 
