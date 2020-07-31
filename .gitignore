@@ -8,3 +8,4 @@ __pycache__/
 database.sqlite3
 session_files/
 singt.pex
+*.pyc
