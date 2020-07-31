@@ -9,3 +9,5 @@ database.sqlite3
 session_files/
 singt.pex
 *.pyc
+build/
+dist/
