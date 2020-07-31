@@ -75,14 +75,12 @@ class CommandResource(resource.Resource):
             result = {"result": "success"}
             result_json = json.dumps(result).encode("utf-8")
             request.write(result_json)
-            print("request.finished:", request.finished)
             request.finish()
         
         def on_error(failure):
             print("ERROR An error occurred:", failure)
             request.setResponseCode(500)
             request.write(b"An error occurred:" + str(failure).encode("utf-8"))
-            print("request.finished:", request.finished)
             request.finish()
 
         d.addCallback(on_success)
@@ -90,7 +88,7 @@ class CommandResource(resource.Resource):
 
         # UDP
         # 0 means any port, we don't care in this case
-        # udp_client = UDPClient(address, 12345)
-        # self._reactor.listenUDP(0, udp_client)
+        udp_client = UDPClient(address, 12345)
+        self._reactor.listenUDP(0, udp_client)
 
         return server.NOT_DONE_YET

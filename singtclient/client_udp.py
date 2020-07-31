@@ -108,7 +108,9 @@ class UDPClient(UDPClientBase):
             "sounds/discussion.opus"
         )
         sound = OpusFile(filename).as_array()
-        sound = numpy.mean(sound, axis=0) # Make mono
+        sound = numpy.mean(sound, axis=1) # Make mono
+        sound = numpy.reshape(sound, (len(sound),1))
+        sound /= 2**16
         sound_played = False
         sound_pos = 0
         
@@ -230,7 +232,7 @@ class UDPClient(UDPClientBase):
                 if sound_pos+frames < len(sound):
                     outdata[:] += sound[sound_pos: sound_pos+frames]
                 else:
-                    #outdata[:len(sound)-sound_pos] += sound[sound_pos: len(sound)]
+                    outdata[:len(sound)-sound_pos] += sound[sound_pos: len(sound)]
                     sound_played = True
                 sound_pos += frames
             
