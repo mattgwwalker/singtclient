@@ -38,10 +38,15 @@ class CommandResource(resource.Resource):
     def _register_commands(self):
         self.register_command("connect", self._command_connect)
         self.register_command("is_connected", self._command_is_connected)
+        self.register_command("debug_check_playback", self._command_debug_check_playback)
+        self.register_command("debug_stop_playback", self._command_debug_stop_playback)
+        self.register_command("debug_record", self._command_debug_record)
+        
     
     def register_command(self, command, function):
         self.commands[command] = function
 
+        
     def _command_is_connected(self, content, request):
         connected_dict = {
             True: "connected",
@@ -92,3 +97,68 @@ class CommandResource(resource.Resource):
         self._reactor.listenUDP(0, udp_client)
 
         return server.NOT_DONE_YET
+
+    
+    def _command_debug_check_playback(self, content, request):
+        from singtclient.pre_flight import check_play_audio
+
+        try:
+            check_play_audio.check_play_audio()
+            result = (
+                "Audio started without error.  If you cannot "+
+                "hear anything, ensure that your headphones "+
+                "are turned on, unmuted, and that the volume "+
+                "is sufficiently high."
+            )
+        except Exception as e:
+            result = "Failed to play audio: "+str(e)
+
+        result_json = {
+            "result": result
+        }
+
+        result_json = json.dumps(result_json).encode("utf-8")
+
+        return result_json
+
+
+    def _command_debug_stop_playback(self, content, request):
+        import sounddevice as sd
+        try:
+            sd.stop()
+            result = "Playback stopped without error.";
+        except Exception as e:
+            result = "Failed to stop playback: "+str(e)
+
+        result_json = {
+            "result": result
+        }
+
+        result_json = json.dumps(result_json).encode("utf-8")
+
+        return result_json
+        
+
+    def _command_debug_record(self, content, request):
+        from singtclient.pre_flight import check_record_audio
+
+        try:
+            check_record_audio.check_record_audio()
+            result = (
+                "Recording completed.  Playback started "+
+                "without error.  If you cannot hear "+
+                "anything make sure you first pass the "+
+                "audio playback test above.  If you still "+
+                "can't hear anything, ensure your microphone "+
+                "is correctly plugged in and turned on."
+            )
+        except Exception as e:
+            result = "Failed to record and playback: "+str(e)
+
+        result_json = {
+            "result": result
+        }
+
+        result_json = json.dumps(result_json).encode("utf-8")
+
+        return result_json

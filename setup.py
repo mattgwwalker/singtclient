@@ -1,8 +1,8 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(name='singtclient',
-      version='0.6.0',
-      packages=["singtclient"],
+      version='0.8.3',
+      packages=find_packages(), #["singtclient"],
       include_package_data=True,
       install_requires=[
           "art",

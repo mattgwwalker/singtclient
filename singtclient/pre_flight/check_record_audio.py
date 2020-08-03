@@ -3,7 +3,26 @@ import pyogg
 import time
 import sounddevice as sd
 
-def check_play_audio():
+def check_record_audio():
+    print("\nRecording for three seconds...")
+    duration = 3 # seconds
+    samples_per_second = 48000
+    samples_to_record = duration * samples_per_second
+    channels = 1 # mono
+    audio = sd.rec(
+        samples_to_record,
+        samplerate = samples_per_second,
+        channels = channels
+    )
+    sd.wait()
+
+    print("Playing back recording...")
+    sd.play(audio,
+            samples_per_second)
+
+    
+
+if __name__ == "__main__":
     print("")
     print("Recording Audio")
     print("===============")
@@ -21,32 +40,15 @@ def check_play_audio():
         max_input_channels = device_strings[default_input_index]["max_input_channels"]
         print("Maximum number of input channels:", max_input_channels)
 
+        default_output_index = sd.default.device[1]
+        default_device_string = device_strings[default_output_index]["name"]
+        print("Selected output device:", default_device_string)
+        
         print("\nWhen you are ready to record, press enter.  Recording will start immediately")
         print("and last for three seconds.")
         user_input = input()
 
-        print("\nRecording for three seconds...")
-        duration = 3 # seconds
-        samples_per_second = 48000
-        samples_to_record = duration * samples_per_second
-        channels = max_input_channels
-        audio = sd.rec(
-            samples_to_record,
-            samplerate = samples_per_second,
-            channels = channels
-        )
-        sd.wait()
-
-
-        print("")
-
-        default_output_index = sd.default.device[1]
-        default_device_string = device_strings[default_output_index]["name"]
-        print("Selected output device:", default_device_string)
-
-        print("Playing back recording...")
-        sd.play(audio,
-                samples_per_second)
+        check_record_audio()
 
         print("\nCan you hear your recording?")
         print("Type 'y' followed by enter if you can hear the recording correctly.")
@@ -61,14 +63,10 @@ def check_play_audio():
 
         if len(user_input)>=1 and (user_input[0] == "y" or user_input[0]=="Y"):
             print("Check passed.")
-            return True
+            break
         elif len(user_input)>=1 and (user_input[0] == "r" or user_input[0]=="R"):
             print("Repeating test.")
         else:
             print("Check failed.")
-            return False
+            break
     
-    
-
-if __name__ == "__main__":
-    check_play_audio()

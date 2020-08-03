@@ -7,6 +7,7 @@ SINGT.wireup = function(){
     SINGT.wireup.nav();
     SINGT.wireup.forms();
     SINGT.wireup.page_connect();
+    SINGT.wireup.page_debug();
 }
 
 SINGT.wireup.nav = function() {
@@ -63,6 +64,86 @@ SINGT.wireup.page_connect = function(){
         error: function(first) {
             console.log("ERROR with command 'is_connected'", first);
         }
+    });
+};
+
+SINGT.wireup.page_debug = function(){
+    $("#button_check_playback_play").click(function(){
+        // Check playback
+        command = {
+            "command": "debug_check_playback",
+        }
+        json_command = JSON.stringify(command);
+        console.log(json_command);
+        
+        // Send command
+        $.ajax({
+            type: "POST",
+            url: "command",
+            data: json_command,
+            dataType: "json", // type from server
+            contentType: "application/json", // type in this request
+            success: function(result) {
+                console.log("Server response from 'debug_check_playback':",result);
+                $("#check_playback_results").text(result["result"]);
+            },
+            error: function(first) {
+                console.log("ERROR with command 'debug_check_playback'", first);
+            }
+        });
+    });
+
+    $("#button_check_playback_stop").click(function(){
+        // Check playback
+        command = {
+            "command": "debug_stop_playback",
+        }
+        json_command = JSON.stringify(command);
+        console.log(json_command);
+        
+        // Send command
+        $.ajax({
+            type: "POST",
+            url: "command",
+            data: json_command,
+            dataType: "json", // type from server
+            contentType: "application/json", // type in this request
+            success: function(result) {
+                console.log("Server response from 'debug_stop_playback':",result);
+                $("#check_playback_results").text(result["result"]);
+            },
+            error: function(first) {
+                console.log("ERROR with command 'debug_stop_playback'", first);
+            }
+        });
+    });
+
+    $("#button_check_recording_record").click(function(){
+        // Update interface
+        $("#check_recording_results").text("Recording started.");
+        
+        // Check playback
+        command = {
+            "command": "debug_record",
+        }
+        json_command = JSON.stringify(command);
+        console.log(json_command);
+        
+        // Send command
+        $.ajax({
+            type: "POST",
+            url: "command",
+            data: json_command,
+            dataType: "json", // type from server
+            contentType: "application/json", // type in this request
+            success: function(result) {
+                console.log("Server response from 'debug_record':",result);
+                $("#check_recording_results").text(result["result"]);
+            },
+            error: function(first) {
+                console.log("ERROR with command 'debug_record'", first);
+            }
+        });
     });
 };
 

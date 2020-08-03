@@ -2,11 +2,23 @@
 import pyogg
 import time
 import sounddevice as sd
+import pkg_resources
 
 def check_play_audio():
-    #filename = "light.opus"
-    filename = "warm-up.opus"
+    filename = pkg_resources.resource_filename("singtclient", "sounds/warm-up.opus")
 
+    print("Loading sound file...")
+    opus_file = pyogg.OpusFile(filename)
+    pcm = opus_file.as_array()
+
+    print("Playing...")
+    sd.play(pcm,
+            opus_file.frequency)
+
+    
+    
+
+if __name__ == "__main__":
     print("")
     print("Playing Audio")
     print("=============")
@@ -18,15 +30,6 @@ def check_play_audio():
     default_device_string = device_strings[default_output_index]["name"]
     print("Selected output device:", default_device_string)
 
-    print("Loading sound file...")
-    opus_file = pyogg.OpusFile(filename)
-    pcm = opus_file.as_array()
-
-    
-    print("Playing...")
-    sd.play(pcm,
-            opus_file.frequency)
-
     print("\nCan you hear the audio?")
     print("Type 'y' followed by enter if you can hear the audio correctly.")
     print("")
@@ -36,16 +39,11 @@ def check_play_audio():
     print("Check the sound output settings on your operating system.")
     print("")
     print("To stop playback, and to indicate that this check has failed, just press enter.")
+    
+    check_play_audio()
     user_input = input()
-
+    
     if len(user_input)>=1 and (user_input[0] == "y" or user_input[0]=="Y"):
         print("Check passed.")
-        return True
     else:
         print("Check failed.")
-        return False
-    
-    
-
-if __name__ == "__main__":
-    check_play_audio()

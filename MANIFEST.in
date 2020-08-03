@@ -1,2 +1,2 @@
 recursive-include singtclient/www *
-recursive-include singtclient/sounds *
+recursive-include singtclient/sounds *.opus CREDITS
