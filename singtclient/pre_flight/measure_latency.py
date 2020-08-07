@@ -9,9 +9,9 @@ import threading
 import math
 import operator
 import wave
-from measure_levels import measure_levels
-from measure_latency_phase_one import measure_latency_phase_one
-from measure_latency_phase_two import measure_latency_phase_two
+from .measure_levels import measure_levels
+from .measure_latency_phase_one import measure_latency_phase_one
+from .measure_latency_phase_two import measure_latency_phase_two
 
 
 def measure_latency(desired_latency="high", repeats=3):
@@ -48,7 +48,11 @@ def measure_latency(desired_latency="high", repeats=3):
           round(phase_two_mean_median_latency*1000))
 
     
-    #return mean_median_latency
+    return {
+        "levels":levels,
+        "phase_one_mean_median_latency":phase_one_mean_median_latency,
+        "phase_two_mean_median_latency":phase_two_mean_median_latency
+    }
     
 
 if __name__ == "__main__":

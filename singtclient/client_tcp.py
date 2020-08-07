@@ -8,9 +8,6 @@ from twisted.logger import Logger
 # Start a logger with a namespace for a particular subsystem of our application.
 log = Logger("client_tcp")
 
-print("hello from client_tcp")
-#exit()
-
 
 class TCPClient(Protocol):
     def __init__(self, name):

@@ -7,11 +7,6 @@ import pyogg
 import sounddevice as sd
 
 
-ding_filename = pkg_resources.resource_filename(
-    "singtclient",
-    "sounds/discussion.opus"
-)
-
 def play_file(filename):
     opus_file = pyogg.OpusFile(filename)
     pcm = opus_file.as_array()
@@ -27,8 +22,12 @@ def measure_gain(instructions_filename,
     # Play instructions
     play_file(instructions_filename)
 
-    # Play ding
-    play_file(ding_filename)
+    # Play recording sound
+    recording_filename = pkg_resources.resource_filename(
+        "singtclient",
+        "sounds/recording.opus"
+    )
+    play_file(recording_filename)
 
 
     # Record
@@ -75,11 +74,15 @@ def measure_gain(instructions_filename,
 
 
     # Play ding
+    ding_filename = pkg_resources.resource_filename(
+        "singtclient",
+        "sounds/discussion.opus"
+    )
     play_file(ding_filename)
 
 
     # Calculate required gain
-    max_data = numpy.max(data)
+    max_data = numpy.max(numpy.abs(data))
     db = 20*math.log10(max_data)
     print(f"Maximum volume of recording: {db:0.1f}dB of full scale (or {max_data*100:0.1f}% on a linear scale).")
 
@@ -87,11 +90,11 @@ def measure_gain(instructions_filename,
     gain = desired_max / max_data
 
     print(f"Calculated gain of {gain:0.1f}-fold")
-    max_gain = 15
     if gain > max_gain:
         gain = max_gain
         print(f"Limited gain to {gain:0.1f}-fold")
 
+    gain_db = 20 * math.log10(gain)
 
     # Apply gain to recording
     adjusted_recording = data * gain
@@ -107,7 +110,7 @@ def measure_gain(instructions_filename,
 
     print("Finished")
 
-    return(max_data, db, gain)
+    return(db, gain_db, gain)
 
 
 if __name__ == "__main__":
@@ -118,9 +121,9 @@ if __name__ == "__main__":
 
     desired_latency = 20/1000 # seconds
     seconds_to_collect = 3
-    max_gain = 15
+    max_gain = 20
     
-    max_data, db, gain = measure_gain(
+    db, gain_db, gain = measure_gain(
         instructions_filename,
         desired_latency,
         seconds_to_collect,

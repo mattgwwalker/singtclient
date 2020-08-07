@@ -9,9 +9,9 @@ import math
 import operator
 import wave
 import queue
-from measure_levels import measure_levels
-from tone import Tone
-from fft_analyser import FFTAnalyser
+from .measure_levels import measure_levels
+from .tone import Tone
+from .fft_analyser import FFTAnalyser
 from scipy import signal
 
 def process_samples(q):
@@ -585,7 +585,7 @@ def measure_latency_phase_one(levels, desired_latency="high", samples_per_second
 
 
         
-def _measure_latency(desired_latency="high"):
+def measure_latency(desired_latency="high"):
     print("Desired latency:", desired_latency)
     levels = measure_levels(desired_latency)
     print("\n")
@@ -625,7 +625,7 @@ if __name__ == "__main__":
 
     input() # wait for enter key
 
-    _measure_latency(
+    measure_latency(
         desired_latency = 100/1000 # seconds
         #desired_latency="high"
     )

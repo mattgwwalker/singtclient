@@ -72,31 +72,46 @@
             </p>
             <p class="mb-3">
               Before we can connect and sing together we need to know
-              a couple of technical things about your computer and how
-              it records your voice.
+              a few technical things about your computer and how it
+              records your voice.
+            </p>
+            <p class="mb-3">
+              Once you've finished with the setup measurements below,
+              please select the 'connect' tab and connect to the
+              server.
             </p>
           </div> <!-- /card-body -->
 
+
           <div class="card-body">
-            <h3>Loop-Back Latency for Recordings</h3>
+            <h3>Gain for Discussion</h3>
+            
             <p class="mb-3">
-              The first thing we need to know is how much time passes
-              between Singt asking for your computer to play a sound
-              and your computer recording that same sound.  We'll
-              call this <em>loop-back latency</em>.
+              The first thing we're going to do is measure how loudly
+              the computer hears you speak.  This depends on both how
+              loudly you speak and also where you are relative to your
+              microphone.  During this test make sure you're sitting
+              or standing as you will for "discussion mode" and then
+              speak as loudly as you do normally.
+            </p>
 
             <p class="mb-3">
-              We need to know this value in order to synchronise your
-              voice with the backing tracks that you'll sing to.
+              We will calculate the <em>gain</em> required such that
+              your voice will be approximately the same volume as the
+              other participants.
             </p>
 
 	         <button class="btn btn-primary mr-2"
-                    id="button_measure_loop_back_latency_recordings">
-              Measure Loop-Back Latency for Recordings
+                    id="button_measure_gain_discussion">
+              Measure Gain for Discussion
             </button>
+
+            <div class="mt-3" id="measure_gain_discussion_results">
+            </div>
+              
           </div> <!-- /card-body -->
 
-            
+          
           <div class="card-body">
             <h3>Gain for Recordings</h3>
             
@@ -111,15 +126,54 @@
 
             <p class="mb-3">
               We will calculate the <em>gain</em> required such that
-              your voice (at least initially) will be the same volume
-              as the other singers.
+              your voice will be approximately the same volume as the
+              other singers.
             </p>
 
 	         <button class="btn btn-primary mr-2"
                     id="button_measure_gain_recordings">
               Measure Gain for Recordings
             </button>
+            
+            <div class="mt-3" id="measure_gain_recordings_results">
+            </div>
+              
           </div> <!-- /card-body -->
+
+          
+          
+          <div class="card-body">
+            <h3>Loop-Back Latency for Recordings</h3>
+            <p class="mb-3">
+              The final thing we need to know is how much time passes
+              between Singt asking for your computer to play a sound
+              and your computer recording that same sound.  We'll call
+              this <em>loop-back latency</em>.  We need to know this
+              value in order to synchronise your voice with the
+              backing tracks that you'll sing to.
+            </p>
+            <p class="mb-3">
+              For this test you need to remove your headphones and
+              place one earpiece as close as possible to your
+              computer's microphone, then turn the volume up about
+              half way.  You'll need to make as little noise as
+              possible during the test.  (We'll tell you when it's
+              safe to breathe again.)  When you're ready, click the
+              button labelled "Measure Loop-Back Latency for
+              Recordings" below.
+            </p>
+
+	         <button class="btn btn-primary mr-2"
+                    id="button_measure_loop_back_latency_recordings">
+              Measure Loop-Back Latency for Recordings
+            </button>
+            
+            <div class="mt-3" id="measure_loop_back_latency_recordings_results">
+            </div>
+              
+          </div> <!-- /card-body -->
+
+            
           
         </div> <!-- /card -->
       </div>

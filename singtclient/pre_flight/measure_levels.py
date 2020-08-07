@@ -9,8 +9,8 @@ import threading
 import math
 import operator
 import wave
-from tone import Tone
-from fft_analyser import FFTAnalyser
+from .tone import Tone
+from .fft_analyser import FFTAnalyser
         
 # Measure Levels
 # ==============

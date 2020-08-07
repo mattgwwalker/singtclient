@@ -1,12 +1,13 @@
 import json
 import sys
 
+import pkg_resources
 from twisted.web import server, resource
 from twisted.internet.endpoints import TCP4ClientEndpoint, connectProtocol
 from twisted.logger import Logger
 
-from singtclient.client_tcp import TCPClient
-from singtclient.client_udp import UDPClient
+from .client_tcp import TCPClient
+from .client_udp import UDPClient
 
 # Start a logger with a namespace for a particular subsystem of our application.
 log = Logger("client_web_command")
@@ -38,6 +39,9 @@ class CommandResource(resource.Resource):
     def _register_commands(self):
         self.register_command("connect", self._command_connect)
         self.register_command("is_connected", self._command_is_connected)
+        self.register_command("measure_gain_discussion", self._command_measure_gain_discussion)
+        self.register_command("measure_gain_recordings", self._command_measure_gain_recordings)
+        self.register_command("measure_loop_back_latency_recordings", self._command_measure_loop_back_latency_recordings)
         self.register_command("debug_check_playback", self._command_debug_check_playback)
         self.register_command("debug_stop_playback", self._command_debug_stop_playback)
         self.register_command("debug_record", self._command_debug_record)
@@ -99,8 +103,103 @@ class CommandResource(resource.Resource):
         return server.NOT_DONE_YET
 
     
+    def _command_measure_gain_discussion(self, content, request):
+        from .pre_flight import measure_gain
+
+        try:
+            instructions_filename = pkg_resources.resource_filename(
+                "singtclient",
+                "sounds/speak-normally.opus"
+            )
+
+            desired_latency = 20/1000 # seconds
+            seconds_to_collect = 3
+            max_gain = 20
+
+            db, gain_db, gain = measure_gain.measure_gain(
+                instructions_filename,
+                desired_latency,
+                seconds_to_collect,
+                max_gain
+            )
+            result = (
+                f"<p>Loudest part of the recording: <strong>{db:0.1f}dB</strong> of full scale</p>\n"+
+                f"<p>Calculated gain: <strong>{gain_db:0.1f}dB</strong></p>"
+            )
+        except Exception as e:
+            result = "Failed to measure gain: "+str(e)
+
+        result_json = {
+            "result": result
+        }
+
+        result_json = json.dumps(result_json).encode("utf-8")
+
+        return result_json
+
+    
+    def _command_measure_gain_recordings(self, content, request):
+        from .pre_flight import measure_gain
+
+        try:
+            instructions_filename = pkg_resources.resource_filename(
+                "singtclient",
+                "sounds/sing-loudly.opus"
+            )
+
+            desired_latency = 100/1000 # seconds
+            seconds_to_collect = 5
+            max_gain = 20
+
+            db, gain_db, gain = measure_gain.measure_gain(
+                instructions_filename,
+                desired_latency,
+                seconds_to_collect,
+                max_gain
+            )
+            result = (
+                f"<p>Loudest part of the recording: <strong>{db:0.1f}dB</strong> of full scale</p>\n"+
+                f"<p>Calculated gain: <strong>{gain_db:0.1f}dB</strong></p>"
+            )
+        except Exception as e:
+            result = "Failed to measure gain: "+str(e)
+
+        result_json = {
+            "result": result
+        }
+
+        result_json = json.dumps(result_json).encode("utf-8")
+
+        return result_json
+
+    
+    def _command_measure_loop_back_latency_recordings(self, content, request):
+        from .pre_flight import measure_latency
+
+        try:
+            desired_latency = 100/1000 # seconds
+            results = measure_latency.measure_latency(
+                desired_latency = desired_latency
+            )
+            result = (
+                f"<p>Mean latency (phase one): <strong>{results['phase_one_mean_median_latency']*1000:0.0f} ms</strong></p>\n"+
+                f"<p>Mean latency (phase two): <strong>{results['phase_two_mean_median_latency']*1000:0.0f} ms</strong></p>\n"+
+                f"<p>Measurement completed.</p>"
+            )
+        except Exception as e:
+            result = "Failed to measure loop-back latency for recordings: "+str(e)
+
+        result_json = {
+            "result": result
+        }
+
+        result_json = json.dumps(result_json).encode("utf-8")
+
+        return result_json
+
+    
     def _command_debug_check_playback(self, content, request):
-        from singtclient.pre_flight import check_play_audio
+        from .pre_flight import check_play_audio
 
         try:
             check_play_audio.check_play_audio()
@@ -140,7 +239,7 @@ class CommandResource(resource.Resource):
         
 
     def _command_debug_record(self, content, request):
-        from singtclient.pre_flight import check_record_audio
+        from .pre_flight import check_record_audio
 
         try:
             check_record_audio.check_record_audio()

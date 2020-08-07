@@ -6,6 +6,7 @@ SINGT.wireup = function(){
     // All wireup goes here
     SINGT.wireup.nav();
     SINGT.wireup.forms();
+    SINGT.wireup.page_setup();
     SINGT.wireup.page_connect();
     SINGT.wireup.page_debug();
 }
@@ -23,11 +24,89 @@ SINGT.wireup.nav = function() {
         })
     });
     // Check for hash symbol in address
-    var hash = window.location.hash || '#page_connect';
+    var initial_page = '#page_setup'
+    var hash = window.location.hash || initial_page;
     hash = hash.split('/')[0]; //allow for splitting has h for multiple uses
     $('a[href="'+hash+'"]').click();
     
 }
+
+SINGT.wireup.page_setup = function(){
+    $("#button_measure_gain_discussion").click(function(){
+        // Measure gain for discussion
+        command = {
+            "command": "measure_gain_discussion",
+        }
+        json_command = JSON.stringify(command);
+        console.log(json_command);
+        
+        // Send command
+        $.ajax({
+            type: "POST",
+            url: "command",
+            data: json_command,
+            dataType: "json", // type from server
+            contentType: "application/json", // type in this request
+            success: function(result) {
+                console.log("Server response from 'measure_gain_discussion':",result);
+                $("#measure_gain_discussion_results").html(result["result"]);
+            },
+            error: function(first) {
+                console.log("ERROR with command 'measure_gain_discussion'", first);
+            }
+        });
+    });
+
+    $("#button_measure_gain_recordings").click(function(){
+        // Measure gain for recordings
+        command = {
+            "command": "measure_gain_recordings",
+        }
+        json_command = JSON.stringify(command);
+        console.log(json_command);
+        
+        // Send command
+        $.ajax({
+            type: "POST",
+            url: "command",
+            data: json_command,
+            dataType: "json", // type from server
+            contentType: "application/json", // type in this request
+            success: function(result) {
+                console.log("Server response from 'measure_gain_recordings':",result);
+                $("#measure_gain_recordings_results").html(result["result"]);
+            },
+            error: function(first) {
+                console.log("ERROR with command 'measure_gain_recordings'", first);
+            }
+        });
+    });
+
+    $("#button_measure_loop_back_latency_recordings").click(function(){
+        // Measure latency
+        command = {
+            "command": "measure_loop_back_latency_recordings",
+        }
+        json_command = JSON.stringify(command);
+        console.log(json_command);
+        
+        // Send command
+        $.ajax({
+            type: "POST",
+            url: "command",
+            data: json_command,
+            dataType: "json", // type from server
+            contentType: "application/json", // type in this request
+            success: function(result) {
+                console.log("Server response from 'measure_loop_back_latency_recordings':",result);
+                $("#measure_loop_back_latency_recordings_results").html(result["result"]);
+            },
+            error: function(first) {
+                console.log("ERROR with command 'measure_loop_back_latency_recordings'", first);
+            }
+        });
+    });
+};
 
 SINGT.wireup.page_connect = function(){
     // Form command

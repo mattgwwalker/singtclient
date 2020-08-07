@@ -9,9 +9,9 @@ import math
 import operator
 import wave
 import queue
-from measure_levels import measure_levels
-from fft_analyser import FFTAnalyser
-from tone import Tone
+from .measure_levels import measure_levels
+from .fft_analyser import FFTAnalyser
+from .tone import Tone
 
 def process_click_data(q, detection_threshold):
     if q.empty():
