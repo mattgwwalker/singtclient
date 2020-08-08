@@ -33,6 +33,7 @@ SINGT.wireup.nav = function() {
 
 SINGT.wireup.page_setup = function(){
     $("#button_measure_gain_discussion").click(function(){
+        $("#measure_gain_discussion_results").html("<p>Measuring...</p>");
         // Measure gain for discussion
         command = {
             "command": "measure_gain_discussion",
@@ -59,6 +60,7 @@ SINGT.wireup.page_setup = function(){
 
     $("#button_measure_gain_recordings").click(function(){
         // Measure gain for recordings
+        $("#measure_gain_recordings_results").html("<p>Measuring...</p>");
         command = {
             "command": "measure_gain_recordings",
         }
@@ -84,6 +86,7 @@ SINGT.wireup.page_setup = function(){
 
     $("#button_measure_loop_back_latency_recordings").click(function(){
         // Measure latency
+        $("#measure_loop_back_latency_recordings_results").html("<p>Measuring...</p>");
         command = {
             "command": "measure_loop_back_latency_recordings",
         }
