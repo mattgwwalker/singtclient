@@ -31,14 +31,17 @@ def measure_levels(desired_latency="high", samples_per_second=48000):
 
     input_device_string = device_strings[default_input_index]["name"]
     print("Selected input device:", input_device_string)
-    input_channels = device_strings[default_input_index]["max_input_channels"]
+    # Force to mono
+    input_channels = 1 #device_strings[default_input_index]["max_input_channels"]
     print("Number of input channels:", input_channels)
 
     output_device_string = device_strings[default_output_index]["name"]
     print("Selected output device:", output_device_string)
-    output_channels = device_strings[default_output_index]["max_output_channels"]
+    # Force to mono
+    output_channels = 1 #device_strings[default_output_index]["max_output_channels"]
     print("Number of output channels:", output_channels)
 
+    # Assume mono
     channels = (input_channels, output_channels)
 
     
@@ -371,6 +374,7 @@ def measure_levels(desired_latency="high", samples_per_second=48000):
             elif v.process_state == ProcessState.FADEIN_TONE0:
                 print("Fading in tone #0")
                 v.tones[0].fadein(v.fadein_tone0_duration)
+                print("outdata.shape:", outdata.shape)
                 v.tones[0].output(outdata)
 
 

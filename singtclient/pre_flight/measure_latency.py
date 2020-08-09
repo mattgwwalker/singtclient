@@ -39,14 +39,25 @@ def measure_latency(desired_latency="high", repeats=3):
             print("median latency (ms):", round(median_latency*1000))
             phase_two_median_latencies.append(median_latency)
 
-    phase_one_mean_median_latency = numpy.mean(phase_one_median_latencies)
-    print("Phase One: mean of the median latencies (ms):",
-          round(phase_one_mean_median_latency*1000))
+    if len(phase_one_median_latencies) > 0:
+        phase_one_mean_median_latency = numpy.mean(phase_one_median_latencies)
+        print(
+            "Phase One: Mean of the median latencies (ms):",
+            round(phase_one_mean_median_latency*1000)
+        )
+    else:
+        phase_one_mean_median_latency = None
+        print("Phase One: Insufficient results to calculate mean of median latencies")
 
-    phase_two_mean_median_latency = numpy.mean(phase_two_median_latencies)
-    print("Phase Two: mean of the median latencies (ms):",
-          round(phase_two_mean_median_latency*1000))
-
+    if len(phase_two_median_latencies) > 0:
+        phase_two_mean_median_latency = numpy.mean(phase_two_median_latencies)
+        print(
+            "Phase Two: Mean of the median latencies (ms):",
+            round(phase_two_mean_median_latency*1000)
+        )
+    else:
+        phase_two_mean_median_latency = None
+        print("Phase Two: Insufficient results to calculate mean of median latencies")
     
     return {
         "levels":levels,

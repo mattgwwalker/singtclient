@@ -153,7 +153,13 @@ class Tone:
         None, outdata will be overwritten.
         """
         # Ensure the number of channels is the same
-        assert outdata.shape[1] == self._pcm.shape[1]
+        if outdata.shape[1] != self._pcm.shape[1]:
+            raise Exception(
+                f"Number of channels for output ({outdata.shape[1]}) "+
+                f"is not the same as the number of channels in the "+
+                f"tone ({self._pcm.shape[1]})."
+            )
+        
         channels = outdata.shape[1]
 
         # Extract number of samples in outdata

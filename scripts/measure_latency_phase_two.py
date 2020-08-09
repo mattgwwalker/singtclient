@@ -1,4 +1,5 @@
-from singtclient.pre_flight.measure_latency_phase_two import measure_latency
+from singtclient.pre_flight.measure_levels import measure_levels
+from singtclient.pre_flight.measure_latency_phase_two import measure_latency_phase_two
 
 if __name__ == "__main__":
     print("")
@@ -30,7 +31,11 @@ if __name__ == "__main__":
 
     input() # wait for enter key
 
-    measure_latency(
-        desired_latency=100/1000 # seconds
-        #desired_latency="high"
+    desired_latency = 100/1000 # seconds
+    levels = measure_levels(desired_latency)
+    measure_latency_phase_two(
+        levels=levels,
+        desired_latency=desired_latency,
+        channels=(1,1)
+        #channels=(2,2)
     )

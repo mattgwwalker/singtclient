@@ -9,7 +9,6 @@ import math
 import operator
 import wave
 import queue
-from .measure_levels import measure_levels
 from .fft_analyser import FFTAnalyser
 from .tone import Tone
 
@@ -71,9 +70,10 @@ def process_click_data(q, detection_threshold):
 
             # Store results from just processed click data
             if not multiple_detections:
-                measured_delta = click_detected_start_time - play_click_start_time
-                latency = clock_delta + measured_delta
-                results.append(latency)
+                if click_detected_start_time is not None:
+                    measured_delta = click_detected_start_time - play_click_start_time
+                    latency = clock_delta + measured_delta
+                    results.append(latency)
             else:
                 print("Multiple click detections")
         except KeyError:
@@ -94,7 +94,7 @@ def process_click_data(q, detection_threshold):
 # Phase Two
 # =========
 # Measure latency accurately via clicks
-def measure_latency_phase_two(levels, desired_latency="high", samples_per_second=48000, channels=(2,2)):
+def measure_latency_phase_two(levels, desired_latency="high", samples_per_second=48000, channels=(1,1)):
     """Channels are specified as a tuple of (input channels, output channels)."""
     input_channels, output_channels = channels
 
@@ -149,7 +149,10 @@ def measure_latency_phase_two(levels, desired_latency="high", samples_per_second
             )
 
             # Tone to produce clicks
-            self.tone = Tone(375)
+            self.tone = Tone(
+                freq = 375,
+                channels = output_channels
+            )
 
             # Initialise recording position
             self.rec_position = 0
@@ -345,7 +348,7 @@ def measure_latency_phase_two(levels, desired_latency="high", samples_per_second
             # Queue the details for off-thread processing
             v.q_click.put_nowait(
                 {"time": time.inputBufferAdcTime,
-                 "mono": mono}
+                 "mono": mono.copy()}
             )
 
                 
@@ -406,7 +409,7 @@ def measure_latency_phase_two(levels, desired_latency="high", samples_per_second
     # Save output as wave file
     print("Writing output wave file -- DISABLED")
     # wave_file = wave.open("out.wav", "wb")
-    # wave_file.setnchannels(2) #FIXME
+    # wave_file.setnchannels(output_channels)
     # wave_file.setsampwidth(2)
     # wave_file.setframerate(samples_per_second)
     # while True:
@@ -423,7 +426,7 @@ def measure_latency_phase_two(levels, desired_latency="high", samples_per_second
     # Save input as wave file
     print("Writing input wave file -- DISABLED")
     # wave_file = wave.open("in.wav", "wb")
-    # wave_file.setnchannels(2) #FIXME
+    # wave_file.setnchannels(input_channels)
     # wave_file.setsampwidth(2)
     # wave_file.setframerate(samples_per_second)
     # while True:
@@ -441,11 +444,4 @@ def measure_latency_phase_two(levels, desired_latency="high", samples_per_second
     # Done!
     print("Finished.")
     return median_latency
-
-        
-def measure_latency(desired_latency="high"):
-    print("Desired latency:", desired_latency)
-    levels = measure_levels(desired_latency)
-    print("\n")
-    accurate_latency = measure_latency_phase_two(levels, desired_latency)
     

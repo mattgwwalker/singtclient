@@ -139,7 +139,7 @@ def process_samples(q):
 # Phase One
 # =========
 # Measure latency approximately via tones.
-def measure_latency_phase_one(levels, desired_latency="high", samples_per_second=48000, channels=(2,2)):
+def measure_latency_phase_one(levels, desired_latency="high", samples_per_second=48000, channels=(1,1)):
     """Channels are specified as a tuple of (input channels, output channels)."""
     input_channels, output_channels = channels
 
@@ -546,7 +546,7 @@ def measure_latency_phase_one(levels, desired_latency="high", samples_per_second
     # Play first tone
     # Open a read-write stream
     stream = sd.Stream(samplerate=samples_per_second,
-                       #channels=channels, #FIXME
+                       channels=channels,
                        dtype=numpy.float32,
                        latency=desired_latency,
                        callback=callback,
