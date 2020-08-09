@@ -100,6 +100,7 @@ def start():
         reactor.stop()
         
     root.protocol("WM_DELETE_WINDOW", window_closed)
+    root.createcommand("::tk::mac::Quit", window_closed)
 
     
     # Reactor
