@@ -16,9 +16,8 @@ log = Logger("client_web_command")
 class CommandResource(resource.Resource):
     isLeaf = True
 
-    def __init__(self, reactor, context):
+    def __init__(self, context):
         super().__init__()
-        self._reactor = reactor
         self._context = context
         self._connected = False
 
@@ -74,8 +73,9 @@ class CommandResource(resource.Resource):
         log.info(f"Connecting to server '{address}' as '{username}'")
 
         # TCP
-        point = TCP4ClientEndpoint(self._reactor, address, 1234)
-        client = TCPClient(username)
+        reactor = self._context["reactor"]
+        point = TCP4ClientEndpoint(reactor, address, 1234)
+        client = TCPClient(username, self._context)
         d = connectProtocol(point, client)
 
         def on_success(tcp_client):
@@ -99,7 +99,7 @@ class CommandResource(resource.Resource):
         # UDP
         # 0 means any port, we don't care in this case
         udp_client = UDPClient(address, 12345, self._context)
-        self._reactor.listenUDP(0, udp_client)
+        reactor.listenUDP(0, udp_client)
 
         return server.NOT_DONE_YET
 

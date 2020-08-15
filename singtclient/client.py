@@ -14,11 +14,18 @@ from twisted.logger import Logger, LogLevel, LogLevelFilterPredicate, \
     textFileLogObserver, FilteringLogObserver, globalLogBeginner
 
 from .client_web import create_web_interface
-
+from .session_files import SessionFiles
 
 def start(context):
+    # Setup directory for session
+    session_files = SessionFiles(Path.home())
+
+    # Update context
+    context["session_files"] = session_files
+    context["reactor"] = reactor
+    
     # Setup logging
-    log_filename = Path.home() / "singt.log"
+    log_filename = session_files.session_dir / "singt.log"
     logfile = open(log_filename, 'w')
     logtargets = []
 
@@ -51,7 +58,7 @@ def start(context):
     # Web Interface
     # =============
 
-    web_server, eventsource_resource = create_web_interface(reactor, context)
+    web_server, eventsource_resource = create_web_interface(context)
     port = 8000
     web_server_running = None
     try:
