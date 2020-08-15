@@ -13,10 +13,10 @@ from twisted.internet import reactor
 from twisted.logger import Logger, LogLevel, LogLevelFilterPredicate, \
     textFileLogObserver, FilteringLogObserver, globalLogBeginner
 
-from singtclient.client_web import create_web_interface
+from .client_web import create_web_interface
 
 
-def start():
+def start(context):
     # Setup logging
     log_filename = Path.home() / "singt.log"
     logfile = open(log_filename, 'w')
@@ -44,15 +44,14 @@ def start():
     # Start a logger with a namespace for a particular subsystem of our application.
     log = Logger("client")
 
-
-
+    # ASCII-art title
     title = art.text2art("Singt")
     print(title)
 
     # Web Interface
     # =============
 
-    web_server, eventsource_resource = create_web_interface(reactor)
+    web_server, eventsource_resource = create_web_interface(reactor, context)
     port = 8000
     web_server_running = None
     try:
@@ -110,20 +109,3 @@ def start():
     reactor.run()
 
     print("Finished.")
-
-
-
-if __name__=="__main__":
-    # # Ensure the user has called this script with the correct number
-    # # of arguments.
-    # if len(sys.argv) != 3:
-    #     print("Usage:")
-    #     print(f"   {sys.argv[0]} ip-address name")
-    #     exit()
-
-    # # Extract values for the IP address and the user's name
-    # address = sys.argv[1]
-    # username = sys.argv[2]
-
-    start()#address, username)
-    

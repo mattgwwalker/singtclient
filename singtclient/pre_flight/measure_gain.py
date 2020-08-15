@@ -62,7 +62,9 @@ def measure_gain(instructions_filename,
             raise sd.CallbackStop
 
         # Monitor the recording
-        outdata[:] = indata
+        # Disabled at Gigi's request
+        #outdata[:] = indata
+        outdata.fill(0)
 
     print("Recording...")
     with sd.Stream(samplerate=samples_per_second,

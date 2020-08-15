@@ -16,9 +16,10 @@ log = Logger("client_web_command")
 class CommandResource(resource.Resource):
     isLeaf = True
 
-    def __init__(self, reactor):
+    def __init__(self, reactor, context):
         super().__init__()
         self._reactor = reactor
+        self._context = context
         self._connected = False
 
         self.commands = {}
@@ -97,7 +98,7 @@ class CommandResource(resource.Resource):
 
         # UDP
         # 0 means any port, we don't care in this case
-        udp_client = UDPClient(address, 12345)
+        udp_client = UDPClient(address, 12345, self._context)
         self._reactor.listenUDP(0, udp_client)
 
         return server.NOT_DONE_YET
@@ -116,12 +117,18 @@ class CommandResource(resource.Resource):
             seconds_to_collect = 3
             max_gain = 20
 
+            # Measure the gain
             db, gain_db, gain = measure_gain.measure_gain(
                 instructions_filename,
                 desired_latency,
                 seconds_to_collect,
                 max_gain
             )
+
+            # Save result in context
+            self._context["discussion_gain"] = gain
+
+            # Return result to web interface
             result = (
                 f"<p>Loudest part of the recording: <strong>{db:0.1f}dB</strong> of full scale</p>\n"+
                 f"<p>Calculated gain: <strong>{gain_db:0.1f}dB</strong></p>"
@@ -151,12 +158,18 @@ class CommandResource(resource.Resource):
             seconds_to_collect = 5
             max_gain = 20
 
+            # Measure the gain
             db, gain_db, gain = measure_gain.measure_gain(
                 instructions_filename,
                 desired_latency,
                 seconds_to_collect,
                 max_gain
             )
+
+            # Save result to context
+            self._context["recordings_gain"] = gain
+
+            # Send result to web interface
             result = (
                 f"<p>Loudest part of the recording: <strong>{db:0.1f}dB</strong> of full scale</p>\n"+
                 f"<p>Calculated gain: <strong>{gain_db:0.1f}dB</strong></p>"
@@ -178,13 +191,32 @@ class CommandResource(resource.Resource):
 
         try:
             desired_latency = 100/1000 # seconds
+
+            # Measure the loop-back latency
             results = measure_latency.measure_latency(
                 desired_latency = desired_latency
             )
+            latency_phase_one = results['phase_one_mean_median_latency']
+            latency_phase_two = results['phase_two_mean_median_latency']
+            mean_latency = (latency_phase_one+latency_phase_two)/2
+
+            # Save the result in the context
+            self._context["recordings_latency"] = mean_latency
+
+            # Share the result with the web interface
+            warning = ""
+            if abs(latency_phase_one-latency_phase_two) > 10/1000:
+                warning = (
+                    "<p><strong>Warning:</strong> The two methods "+
+                    "differed by more than 10 milliseconds.  Please "+
+                    "report this to Matthew.</p>"
+                )
+            
             result = (
-                f"<p>Mean latency (phase one): <strong>{results['phase_one_mean_median_latency']*1000:0.0f} ms</strong></p>\n"+
-                f"<p>Mean latency (phase two): <strong>{results['phase_two_mean_median_latency']*1000:0.0f} ms</strong></p>\n"+
-                f"<p>Measurement completed.</p>"
+                f"<p>Mean latency (phase one): <strong>{latency_phase_one*1000:0.0f} ms</strong></p>\n"+
+                f"<p>Mean latency (phase two): <strong>{latency_phase_two*1000:0.0f} ms</strong></p>\n"+
+                warning+
+                f"<p>Measurement completed, using average of <strong>{mean_latency*1000:0.0f} ms</strong>.</p>"
             )
         except Exception as e:
             result = "Failed to measure loop-back latency for recordings: "+str(e)

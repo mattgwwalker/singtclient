@@ -71,8 +71,9 @@ class UDPClientBase(DatagramProtocol):
 
 
 class UDPClient(UDPClientBase):
-    def __init__(self, host, port):
+    def __init__(self, host, port, context):
         super().__init__(host, port)
+        self._context = context
 
         # Create a Stream
         self._stream = sd.Stream(
@@ -115,7 +116,13 @@ class UDPClient(UDPClientBase):
         sound_pos = 0
         
         # Automatic gain control dedicated to callback
-        agc = AutomaticGainControl()
+        #agc = AutomaticGainControl()
+
+        # Fixed gain
+        try:
+            gain = self._context["discussion_gain"]
+        except KeyError:
+            gain = 1
 
         # OpusDecoder dedicated to callback
         opus_decoder = OpusDecoder()
@@ -128,6 +135,7 @@ class UDPClient(UDPClientBase):
         opus_encoder.set_sampling_frequency(samples_per_second)
         opus_encoder.set_channels(1) #FIXME
         opus_encoder.set_frame_size(frame_size_ms) # ms
+        #opus_encoder.set_discontinuous_transmission()
         
         # PCM buffer dedicated to callback
         buf = None
@@ -151,8 +159,11 @@ class UDPClient(UDPClientBase):
 
             # Apply automatic gain control, this will improve the
             # quality of the audio that's sent.
-            agc.apply(indata)
+            #agc.apply(indata)
             #print("gain:", agc.gain)
+
+            # Apply fixed gain
+            numpy.multiply(indata, gain, out=indata)
 
             # Convert from float32 to int16
             indata_int16 = indata * (2**15-1)
@@ -164,7 +175,11 @@ class UDPClient(UDPClientBase):
             for encoded_packet in encoded_packets:
                 reactor.callFromThread(self._udp_packetizer.write,
                                        encoded_packet)
-                
+
+            # Check the discontinuous transmission (DTX) state
+            #print("DTX state:", opus_encoder.in_discontinuous_transmission())
+
+            
             # Output
             # ======
             

@@ -4,14 +4,13 @@ from twisted.web.static import File
 from singtcommon import EventSource
 from singtclient.client_web_command import CommandResource
 
-def create_web_interface(reactor):
-    # TEST
+def create_web_interface(reactor, context):
+    # Load www directory
     import pkg_resources
-    DATA_PATH = pkg_resources.resource_filename('singtclient', 'www')
+    www_dir = pkg_resources.resource_filename('singtclient', 'www')
 
-    
     # Create the web resources
-    file_resource = File(DATA_PATH)#("./www/")
+    file_resource = File(www_dir)
     root = file_resource
 
     # Create an event source server
@@ -19,7 +18,7 @@ def create_web_interface(reactor):
     root.putChild(b"eventsource", eventsource_resource)
 
     # Create a command receiver
-    command_resource = CommandResource(reactor)
+    command_resource = CommandResource(reactor, context)
     root.putChild(b"command", command_resource)
     
     # Create a web server
