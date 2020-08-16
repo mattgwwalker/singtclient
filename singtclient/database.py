@@ -63,3 +63,17 @@ class Database:
         )
 
         return random_id
+
+    def get_client_id(self):
+        def get_id(cursor):
+            cursor.execute(
+                "SELECT value FROM Settings WHERE key = ?",
+                ("client_id",)
+            )
+            row = cursor.fetchone()
+            if row is None:
+                raise Exception("No client ID found in database")
+            return row[0]
+        
+        return self.dbpool.runInteraction(get_id)
+        

@@ -36,12 +36,20 @@ class TCPClient(Protocol):
         
     def connectionMade(self):
         self._tcp_packetizer = TCPPacketizer(self.transport)
-        data = {
-            "command":"announce",
-            "username": self._name
-        }
-        msg = json.dumps(data)
-        self._tcp_packetizer.write(msg)
+        database = self._context["database"]
+        d_client_id = database.get_client_id()
+        def announce(client_id):
+            data = {
+                "command":"announce",
+                "client_id": client_id,
+                "username": self._name
+            }
+            msg = json.dumps(data)
+
+            return self._tcp_packetizer.write(msg)
+            
+        return d_client_id.addCallback(announce)
+        
 
         
     def connectionLost(self, reason):
@@ -99,7 +107,14 @@ class TCPClient(Protocol):
         reactor.connectTCP(url_parsed.host, url_parsed.port, factory)
         d = factory.deferred
         def on_success(data):
-            print("Success! File downloaded:", data)
+            # File downloaded succesfully, tell the server
+            result = {
+                "command": "update_downloaded",
+                "audio_id": audio_id
+            }
+            result_json = json.dumps(result)
+            self._tcp_packetizer.write(result_json)
+            
         def on_error(error):
             print("Failure: ", error)
         d.addCallback(on_success)
