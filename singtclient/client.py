@@ -14,6 +14,7 @@ from twisted.logger import Logger, LogLevel, LogLevelFilterPredicate, \
     textFileLogObserver, FilteringLogObserver, globalLogBeginner
 
 from .client_web import create_web_interface
+from .database import Database
 from .session_files import SessionFiles
 
 def start(context):
@@ -54,6 +55,12 @@ def start(context):
     # ASCII-art title
     title = art.text2art("Singt")
     print(title)
+
+    # Database
+    db_filename = session_files.session_dir / "database.sqlite3"
+    database = Database(db_filename, context)
+    context["database"] = database
+
 
     # Web Interface
     # =============
