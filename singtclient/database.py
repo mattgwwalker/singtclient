@@ -25,7 +25,8 @@ class Database:
         self.dbpool = adbapi.ConnectionPool(
             "sqlite3",
             db_filename,
-            cp_openfun=setup_connection
+            cp_openfun=setup_connection,
+            check_same_thread=False # See https://twistedmatrix.com/trac/ticket/3629
         )
 
         # If the database did not exist, initialise the database
@@ -54,8 +55,9 @@ class Database:
         initialisation_commands = f.read()
         cursor.executescript(initialisation_commands)
 
-        # Create a randomly generated identifier
-        bits_in_random_id = 64
+        # Create a randomly generated identifier.  It appears that a
+        # sign bit is added by Python.
+        bits_in_random_id = 63
         random_id = random.getrandbits(bits_in_random_id)
         cursor.execute(
             "INSERT INTO Settings (key, value) VALUES (?, ?)",

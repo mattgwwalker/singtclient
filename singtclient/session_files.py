@@ -4,4 +4,4 @@ class SessionFiles:
         self.session_dir = root_dir / "singtclient_session_files"
 
         # Ensure directories exist
-        self.session_dir.mkdir(exist_ok=True)
+        self.session_dir.mkdir(exist_ok=True, parents=True)

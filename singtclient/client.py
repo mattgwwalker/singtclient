@@ -14,16 +14,25 @@ from twisted.logger import Logger, LogLevel, LogLevelFilterPredicate, \
     textFileLogObserver, FilteringLogObserver, globalLogBeginner
 
 from .client_web import create_web_interface
+from .command import Command
 from .database import Database
 from .session_files import SessionFiles
+from .client_udp import UDPClient
 
-def start(context):
+# Start a logger with a namespace for a particular subsystem of our application.
+log = Logger("client")
+
+def init_session(context):
+    root = context["root"]
     # Setup directory for session
-    session_files = SessionFiles(Path.home())
+    session_files = SessionFiles(root)
 
     # Update context
     context["session_files"] = session_files
     context["reactor"] = reactor
+
+def init_logging(context):
+    session_files = context["session_files"]
     
     # Setup logging
     log_filename = session_files.session_dir / "singt.log"
@@ -49,22 +58,25 @@ def start(context):
     # Direct the Twisted Logger to log to both of our observers.
     globalLogBeginner.beginLoggingTo(logtargets)
 
-    # Start a logger with a namespace for a particular subsystem of our application.
-    log = Logger("client")
-
     # ASCII-art title
     title = art.text2art("Singt")
     print(title)
 
+def init_database(context):
+    session_files = context["session_files"]
+    
     # Database
     db_filename = session_files.session_dir / "database.sqlite3"
     database = Database(db_filename, context)
     context["database"] = database
 
 
-    # Web Interface
-    # =============
+def init_command(context):
+    command = Command(context)
+    context["command"] = command
+    
 
+def init_web_interface(context):
     web_server, eventsource_resource = create_web_interface(context)
     port = 8000
     web_server_running = None
@@ -80,9 +92,10 @@ def start(context):
             webbrowser.open("http://127.0.0.1:"+str(port))
         reactor.callWhenRunning(open_browser)
 
+    return web_server_running
 
-    # GUI
-    # ===
+
+def init_gui(context, web_server_running):
     from twisted.internet import tksupport
     import tkinter as tk
     
@@ -101,7 +114,7 @@ def start(context):
         background_filenames[web_server_running]
     )
     background_image = tk.PhotoImage(
-        file=background_filename
+        file = background_filename
     )
     background_label = tk.Label(root, image=background_image)
     background_label.place(x=0, y=0, relwidth=1, relheight=1)
@@ -110,16 +123,35 @@ def start(context):
 
     def window_closed():
         log.info("The user closed the GUI window")
+        reactor = context["reactor"]
         reactor.stop()
         
     root.protocol("WM_DELETE_WINDOW", window_closed)
     root.createcommand("::tk::mac::Quit", window_closed)
 
     
-    # Reactor
-    # =======
-    
+def init_reactor(context):
     print("Running reactor")
+    reactor = context["reactor"]
     reactor.run()
-
     print("Finished.")
+
+
+def init_headless(context):
+    if "root" not in context:
+        context["root"] = Path.home()
+    if "udp_client_factory" not in context:
+        context["udp_client_factory"] = UDPClient
+    init_session(context)
+    init_logging(context)
+    init_database(context)
+    init_command(context)
+    
+    
+def start(context):
+    init_headless(context)
+    web_server_running = init_web_interface(context)
+    init_gui(context, web_server_running)
+    init_reactor(context)
+
+

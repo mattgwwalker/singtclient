@@ -6,8 +6,6 @@ from twisted.web import server, resource
 from twisted.internet.endpoints import TCP4ClientEndpoint, connectProtocol
 from twisted.logger import Logger
 
-from .client_tcp import TCPClient
-from .client_udp import UDPClient
 
 # Start a logger with a namespace for a particular subsystem of our application.
 log = Logger("client_web_command")
@@ -70,13 +68,11 @@ class CommandResource(resource.Resource):
     def _command_connect(self, content, request):
         username = content["username"]
         address = content["address"]
+        command = context["command"]
+        
         log.info(f"Connecting to server '{address}' as '{username}'")
 
-        # TCP
-        reactor = self._context["reactor"]
-        point = TCP4ClientEndpoint(reactor, address, 1234)
-        client = TCPClient(username, self._context)
-        d = connectProtocol(point, client)
+        d = command.connect(username, address)
 
         def on_success(tcp_client):
             print("Connected to server")
@@ -95,11 +91,6 @@ class CommandResource(resource.Resource):
 
         d.addCallback(on_success)
         d.addErrback(on_error)
-
-        # UDP
-        # 0 means any port, we don't care in this case
-        udp_client = UDPClient(address, 12345, self._context)
-        reactor.listenUDP(0, udp_client)
 
         return server.NOT_DONE_YET
 

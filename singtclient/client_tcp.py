@@ -89,6 +89,7 @@ class TCPClient(Protocol):
 
         
     def _command_download(self, data):
+        print("data:", data)
         reactor = self._context["reactor"]
         session_files = self._context["session_files"]
         audio_id = data["audio_id"]
@@ -110,13 +111,23 @@ class TCPClient(Protocol):
             # File downloaded succesfully, tell the server
             result = {
                 "command": "update_downloaded",
-                "audio_id": audio_id
+                "audio_id": audio_id,
+                "result": "success"
             }
             result_json = json.dumps(result)
             self._tcp_packetizer.write(result_json)
             
         def on_error(error):
-            print("Failure: ", error)
+            # File failed to downloaded succesfully, tell the server
+            result = {
+                "command": "update_downloaded",
+                "audio_id": audio_id,
+                "result": "failure",
+                "error": str(error)
+            }
+            result_json = json.dumps(result)
+            self._tcp_packetizer.write(result_json)
+
         d.addCallback(on_success)
         d.addErrback(on_error)
 
