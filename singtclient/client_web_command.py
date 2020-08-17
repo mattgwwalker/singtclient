@@ -68,7 +68,7 @@ class CommandResource(resource.Resource):
     def _command_connect(self, content, request):
         username = content["username"]
         address = content["address"]
-        command = context["command"]
+        command = self._context["command"]
         
         log.info(f"Connecting to server '{address}' as '{username}'")
 

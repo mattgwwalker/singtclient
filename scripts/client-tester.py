@@ -4,16 +4,29 @@ import sys
 
 from singtclient import client
 from singtclient import context
-from singtclient.client_udp import UDPClientTester
+from singtclient.client_udp import UDPClientTester, UDPClientRecorder
 
 
 if __name__=="__main__":
-    if len(sys.argv) != 3:
+    display_usage = True
+    if len(sys.argv) >= 3:
+        command = sys.argv[2]
+        if command == "play":
+            if len(sys.argv) == 4:
+                display_usage = False
+                filename = sys.argv[3]
+        if command == "record" or command == "echo":
+            if len(sys.argv) == 3:
+                display_usage =	False
+    
+    if display_usage:
         print("Usage:")
-        print("  "+sys.argv[0]+" ip_address wav_filename")
+        print("  "+sys.argv[0]+" [ip_address] play [wav_filename]")
+        print("  "+sys.argv[0]+" [ip_address] record")
+        print("  "+sys.argv[0]+" [ip_address] echo")
         exit()
+        
     ip_address = sys.argv[1]
-    audio_filename = sys.argv[2]
     
     context = context.make_context()
 
@@ -21,16 +34,22 @@ if __name__=="__main__":
     context["root"] = Path.home() / "singtclient_testers" / f"{random_id:05d}"
 
     output_filename = str(context["root"] / "output.wav") 
-    def make_udp_client(host, port, context):
-        return UDPClientTester(host, port, audio_filename, output_filename)
+
+    if command == "play":
+        def make_udp_client(host, port, context):
+            return UDPClientTester(host, port, filename, output_filename)
+    else:
+        echo = (command == "echo")
+        def make_udp_client(host, port, context):
+            return UDPClientRecorder(host, port, output_filename, echo=echo)
     context["udp_client_factory"] = make_udp_client
+                
     client.init_headless(context)
 
     # Connect to server
     reactor = context["reactor"]
-    username = f"client-tester-{random_id:05d}"
+    username = f"client-{command}er-{random_id:05d}"
     def connect():
-        print("Connecting to server with username '{username}' at address {ip_address}")
         command = context["command"]
         command.connect(username, ip_address)
     reactor.callWhenRunning(connect)

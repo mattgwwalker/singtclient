@@ -1,6 +1,7 @@
 import random
 
 import pkg_resources
+from twisted.internet import defer
 from twisted.enterprise import adbapi
 from twisted.logger import Logger
 
@@ -22,7 +23,7 @@ class Database:
         
         # Open a connection to the database.  SQLite will create the file if
         # it doesn't already exist.
-        self.dbpool = adbapi.ConnectionPool(
+        dbpool = adbapi.ConnectionPool(
             "sqlite3",
             db_filename,
             cp_openfun=setup_connection,
@@ -32,16 +33,21 @@ class Database:
         # If the database did not exist, initialise the database
         if not database_exists:
             print("Database requires initialisation")
-            self._d = self.dbpool.runInteraction(self._initialise_database)
+            self._db_ready = dbpool.runInteraction(self._initialise_database)
             def on_success(data):
                 log.info("Database successfully initialised")
+                return dbpool
             def on_error(data):
                 log.error("Failed to initialise the database: "+str(data))
                 reactor = context["reactor"]
                 reactor.stop()
 
-            self._d.addCallback(on_success)
-            self._d.addErrback(on_error)
+            self._db_ready.addCallback(on_success)
+            self._db_ready.addErrback(on_error)
+        else:
+            # Database already initialised
+            self._db_ready = defer.Deferred()
+            self._db_ready.callback(dbpool)
 
         
     # Initialise the database structure from instructions in file
@@ -76,6 +82,8 @@ class Database:
             if row is None:
                 raise Exception("No client ID found in database")
             return row[0]
-        
-        return self.dbpool.runInteraction(get_id)
-        
+
+        def when_ready(dbpool):
+            return dbpool.runInteraction(get_id)
+
+        return self._db_ready.addCallback(when_ready)

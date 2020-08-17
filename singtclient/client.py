@@ -116,6 +116,8 @@ def init_gui(context, web_server_running):
     background_image = tk.PhotoImage(
         file = background_filename
     )
+    # A reference to the image must be kept, or we see only white
+    context["gui_background_image"] = background_image
     background_label = tk.Label(root, image=background_image)
     background_label.place(x=0, y=0, relwidth=1, relheight=1)
 
