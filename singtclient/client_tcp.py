@@ -35,10 +35,13 @@ class TCPClient(Protocol):
 
         
     def connectionMade(self):
+        log.info("Connection made")
         self._tcp_packetizer = TCPPacketizer(self.transport)
         database = self._context["database"]
-        d_client_id = database.get_client_id()
+        d = database.get_client_id()
+
         def announce(client_id):
+            log.info(f"Announcing with username '{self._name}'")
             data = {
                 "command":"announce",
                 "client_id": client_id,
@@ -47,9 +50,15 @@ class TCPClient(Protocol):
             msg = json.dumps(data)
 
             return self._tcp_packetizer.write(msg)
-            
-        return d_client_id.addCallback(announce)
-        
+
+        def on_error(error):
+            log.error(f"Failed to announce with username '{self._name}': "+str(error))
+            return error
+
+        d.addCallback(announce)
+        d.addErrback(on_error)
+
+        return d
 
         
     def connectionLost(self, reason):

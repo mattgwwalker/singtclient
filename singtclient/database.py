@@ -85,5 +85,12 @@ class Database:
 
         def when_ready(dbpool):
             return dbpool.runInteraction(get_id)
+        def on_error(error):
+            log.warn("Failed to get client id: "+str(error))
+            return error
 
-        return self._db_ready.addCallback(when_ready)
+        d = self._db_ready
+        d.addCallback(when_ready)
+        d.addErrback(on_error)
+
+        return d
