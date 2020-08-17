@@ -11,3 +11,4 @@ singt.pex
 *.pyc
 build/
 dist/
+singtclient.egg-info/
