@@ -74,7 +74,19 @@ class UDPClient(UDPClientBase):
     def __init__(self, host, port, context):
         super().__init__(host, port)
         self._context = context
+        self._stream = None        
+        
+    def __del__(self):
+        # Shutdown the audio stream
+        if self._stream is not None:
+            print("Shutting down audio")
+            self._stream.stop()
+            self._stream.close()
 
+        
+    def startProtocol(self):
+        super().startProtocol()
+        
         # Create a Stream
         self._stream = sd.Stream(
             samplerate = 48000,
@@ -86,14 +98,6 @@ class UDPClient(UDPClientBase):
 
         # Start the audio stream
         self._stream.start()
-
-        
-        
-    def __del__(self):
-        # Shutdown the audio stream
-        print("Shutting down audio")
-        self._stream.stop()
-        self._stream.close()
 
         
     def _make_callback(self):
