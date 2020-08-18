@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='singtclient',
-      version='0.12.2',
+      version='0.12.4',
       packages=find_packages(), #["singtclient"],
       include_package_data=True,
       install_requires=[

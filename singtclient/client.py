@@ -60,7 +60,7 @@ def init_logging(context):
 
     # ASCII-art title
     title = art.text2art("Singt")
-    print(title)
+    log.info("\n"+title)
 
 def init_database(context):
     session_files = context["session_files"]
@@ -84,7 +84,7 @@ def init_web_interface(context):
         reactor.listenTCP(port, web_server)
         web_server_running = True
     except Exception as e:
-        print("Web server failed:"+str(e))
+        log.error("Web server failed:"+str(e))
         web_server_running = False
         
     if web_server_running:
@@ -133,10 +133,10 @@ def init_gui(context, web_server_running):
 
     
 def init_reactor(context):
-    print("Running reactor")
+    log.info("Running reactor")
     reactor = context["reactor"]
     reactor.run()
-    print("Finished.")
+    log.info("Finished.")
 
 
 def init_headless(context):
