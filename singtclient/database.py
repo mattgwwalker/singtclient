@@ -45,25 +45,32 @@ class Database:
             self._db_ready.addCallback(on_success)
             self._db_ready.addErrback(on_error)
         else:
-            # Check that database is the correct version
-            expected_version = 1
-            def check_version(cursor):
-                cursor.execute("SELECT version FROM Version")
-                row = cursor.fetchone()
-                if row is None:
-                    raise Exception("No version found in Version table of database")
-                if row[0] == expected_version:
-                    log.info(f"Client database version {expected_version}")
-                    return dbpool
-                else:
-                    raise Exception(f"Database version ({row[0]}) did not match expected version ({expected_version})")
-            self._db_ready = dbpool.runInteraction(check_version)
+            # Database exists already
+            self._db_ready = defer.Deferred()
+            self._db_ready.callback(dbpool)
 
-            def on_error(error):
-                log.error("Failed to initialise the database: "+str(error))
-                reactor = context["reactor"]
-                reactor.stop()
-            self._db_ready.addErrback(on_error)
+        # Check that database is the correct version
+        expected_version = 1
+        def check_version(cursor):
+            cursor.execute("SELECT version FROM Version")
+            row = cursor.fetchone()
+            if row is None:
+                raise Exception("No version found in Version table of database")
+            if row[0] == expected_version:
+                log.info(f"Client database version {expected_version}")
+                return dbpool
+            else:
+                raise Exception(f"Database version ({row[0]}) did not match expected version ({expected_version})")
+
+        def run_check_version(dbpool):
+            return dbpool.runInteraction(check_version)
+        self._db_ready.addCallback(run_check_version)
+
+        def on_error(error):
+            log.error("Failed to verify the database: "+str(error))
+            reactor = context["reactor"]
+            reactor.stop()
+        self._db_ready.addErrback(on_error)
 
             
     # Initialise the database structure from instructions in file
