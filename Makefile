@@ -10,3 +10,5 @@ clean:
 	rm -f pip_freeze.txt
 	rm -rf dist
 
+cloc:
+	cloc --exclude-list-file=exclude-list.txt singtclient
