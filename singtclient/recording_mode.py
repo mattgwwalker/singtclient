@@ -1,608 +1,285 @@
-# Given a backing track, records while playing the backing track,
-# saving the result to and OggOpus file.
-
-import pyogg
-from pyogg import opus
-from pyogg import ogg
-import sounddevice as sd
-import numpy
-import ctypes
+from pathlib import Path
+from enum import Enum
+import math
 import threading
-import opus_helpers
-from frame_buffer import FrameBuffer
-import queue
-import time as t # for debugging
-import wave
 
-q = queue.Queue(maxsize=-1)
-q2 = queue.Queue(maxsize=-1) # FIXME: This is a debug queue for testing
+import numpy
+import pkg_resources
+import pyogg
+import sounddevice as sd
+from singtcommon import RingBuffer
+from twisted.internet import reactor
+from twisted.internet import defer
+from twisted.internet.task import LoopingCall
+
+from session_files import SessionFiles
 
 
 class RecordingMode:
-    def __init__(self):
-        # Create re-entrant lock so that we threadsafe
-        self._lock = threading.RLock();
-
-        # Grab the lock immediately
-        with self._lock:
-            self._samples_per_second = 48000
-            self._silence_duration_after = 60 # ms
-            self._starting_sound_filename = "sounds/starting.opus"
-            self._playback_level = 0.5
-            self._monitoring_level = 0.5
-
-            # Open the starting sound file and store it as PCM buffer
-            opus_file = pyogg.OpusFile(self._starting_sound_filename)
-            self._starting_sound_pcm = opus_file.as_array()
-            self._starting_sound_pcm = self._starting_sound_pcm.astype(numpy.float32) / (2**15)
-
-
-            
-    @property
-    def _monitoring_level(self):
-        return 1 - self._playback_level
-
+    class State(Enum):
+        INTRO = 10
+        RECORD = 20
+        
     
-    @_monitoring_level.setter
-    def _monitoring_level(self, new_value):
-        if new_value > 1:
-            new_value = 1
-        if new_value < 0:
-            new_value = 0
-        self._playback_level = 1 - new_value
-
-
-    def set_latency_adjustment(self, latency):
-        self._latency = latency
-
+    def __init__(self, backing_audio_ids, recording_audio_id, host, port, context):
+        self._backing_audio_ids = backing_audio_ids
+        self._recording_audio_id = recording_audio_id
+        self._context = context
         
-    def prepare(self, backing_track_filename):
-        # Grab the lock so that we're threadsafe
-        with self._lock:
-            # Open the backing track and store it as PCM buffer
-            opus_file = pyogg.OpusFile(backing_track_filename)
-            self._backing_track_pcm = opus_file.as_array()
-            self._backing_track_pcm = self._backing_track_pcm.astype(numpy.float32) / (2**15)
+        self._session_files = context["session_files"]
 
-            # Create an encoder
-            self._encoder = opus_helpers.create_encoder(
-                self._backing_track_pcm,
-                self._samples_per_second
-            )
+        self._intro_audio_filename = pkg_resources.resource_filename(
+            "singtclient",
+            "sounds/recording.opus"
+        )
 
-            
+        self._stream = None
+
+        # Create a ring buffer shared by the audio callback and the
+        # audio writer.  We record in mono.
+        buffer_size_s = 1 # second
+        self.samples_per_second = 48000
+        buffer_size_samples = buffer_size_s * self.samples_per_second
+        channels = 1 # mono
+        buffer_shape = (buffer_size_samples, channels)
+        self._ring_buffer = RingBuffer(
+            buffer_shape,
+            dtype=numpy.float32
+        )
+
+        # DEBUG file to output to
+        self._f = open("out.opus", "wb")
+        writer = pyogg.OggOpusWriter(self._f, custom_pre_skip=335*48)
+        writer.set_application("audio")
+        writer.set_sampling_frequency(self.samples_per_second)
+        writer.set_channels(1)
+        writer.set_frame_size(20) # milliseconds
+        self._writer = writer
+
+
+        self._finished = False
+        
+        
+        
     def record(self):
-        # Define the stream's callback
-        count = 0 # DEBUG
-        last_inputBufferAdcTime = None
+        # Create deferred to return
+        deferred = defer.Deferred()
+
+        # Load the intro audio
+        intro_audio = self._load_intro_audio()
         
-        def callback(indata, outdata, samples, time, status):
-            nonlocal step_no, current_pos, stream, warmup_samples
-            nonlocal samples_per_frame
-            nonlocal count
-            nonlocal frame_buffer
-            nonlocal last_inputBufferAdcTime
+        # Load the backing audio
+        backing_audio = self._load_backing_audio()
 
-            start_time = t.time()
+        # Get the recording latency and calculate the desired duration
+        recording_latency_s = context["recording_latency"]
+        recording_latency_samples = int(
+            recording_latency_s * self.samples_per_second
+        )
+        desired_samples = (
+            len(backing_audio[0])
+            + recording_latency_samples
+        )
+        print("desired_duration:", desired_samples)
 
-            # internal_latency = (time.outputBufferDacTime
-            #                     - time.inputBufferAdcTime)
-            # print("internal latency:", internal_latency,
-            #       "samples:", samples)
+        
+        # Create a dict for variables used in callback
+        class Variables:
+            def __init__(self):
+                self.state = RecordingMode.State.RECORD
+                self.index = 0
+                self.recorded_length = 0
+                self.backing_length = len(backing_audio[0])
+        v = Variables()
 
-            # if last_inputBufferAdcTime is not None:
-            #     print("time diff:", time.inputBufferAdcTime - last_inputBufferAdcTime)
-            # last_inputBufferAdcTime = time.inputBufferAdcTime
-            
+        # Start processing the audio
+        looping_call = LoopingCall(self._write_audio)
+        reactor = self._context["reactor"]
+        reactor.callWhenRunning(lambda : looping_call.start(20/1000))
+        
+        # DEBUG Playback backing audio
+        def callback(indata, outdata, frames, time, status):
             if status:
                 print(status)
 
-            count += 1
-            
-            # Grab the lock so that we're threadsafe
-            with self._lock:
-                # TODO: Need to add monitoring
-                inx = []
-                inx[:] = indata[:] 
-
-                # Step No 0
-                # =========
-                if step_no == 0:
-
-                    if status.input_underflow:
-                        print("INPUT UNDERFLOW: Not a problem as we're just writing out.  Count:",count)
-                    elif status.input_overflow:
-                        print("INPUT OVERFLOW: Not a problem as we're just writing out. Count:",count)
-                    elif status:
-                        print(status)
-                        print("count: ",count)
-                        print("ABORTING")
-                        raise sd.CallbackAbort
-
-
-                    # If the number of output channels does not match
-                    # out starting sound's PCM, we'll need to adjust
-                    # it.
-                    if outdata.shape[1] != self._starting_sound_pcm.shape[1]:
-                        # Number of channels does not match
-                        print("Number of channels does not match")
-
-                    # Copy the starting sound to the output
-                    remaining = len(self._starting_sound_pcm) - current_pos
-                    if remaining >= samples:
-                        outdata[:] = self._starting_sound_pcm[
-                            current_pos : current_pos+samples
-                        ]
-                    else:
-                        # Copy what's left of the starting sound, and fill
-                        # the rest with silence
-                        outdata[:remaining] = self._starting_sound_pcm[
-                            current_pos : len(self._starting_sound_pcm)
-                        ]
-                        outdata[remaining:samples] = [[0.0, 0.0]] * (samples-remaining)
-
-                    # Adjust the starting sound position
-                    current_pos += samples
-
-                    if current_pos >= len(self._starting_sound_pcm):
-                        print("Finished playing starting sound; moving to next step")
-                        step_no = 2#+= 1 FIXME
-                        current_pos = 0
-
-                        
-                # Step No 1
-                # =========
-                elif step_no == 1:
-                    if status:
-                        print(status, "in step #1; ignoring")
-                    
-                    # Play silence
-                    outdata[:] = [[0.0, 0.0]] * samples
-                    current_pos += samples
-
-                    # Warm-up the encoder.  See "Encoder Guidelines"
-                    # at https://tools.ietf.org/html/rfc7845#page-27
-                    frame_buffer.put(indata)
-                    if frame_buffer.size() >= samples_per_frame:
-                        # Pass the complete frame to another thread for processing
-                        q.put(frame_buffer.get(samples_per_frame))
-
-                    if current_pos >= warmup_samples:
-                        print("Finished warming up the encoder; moving to next step")
-                        step_no += 1
-                        warmup_samples = current_pos
-                        current_pos = 0
-                    
-
-                # Step No 2
-                # =========
-                elif step_no == 2:
-                    if status:
-                        print(status, "in step #2; aborting")
-                        print("count: ",count)
-                        print("ABORTING")
-                        raise sd.CallbackAbort
-
-                    
-                    # Play backing track and record voice
-                    # Copy the backing track to the output
-                    remaining = len(self._backing_track_pcm) - current_pos
-                    if remaining >= samples:
-                        outdata[:] = self._backing_track_pcm[
-                            current_pos : current_pos+samples
-                        ]
-                    else:
-                        # Copy what's left of the backing track, and fill
-                        # the rest with silence
-                        outdata[:remaining] = self._backing_track_pcm[
-                            current_pos : len(self._backing_track_pcm)
-                        ]
-                        outdata[remaining:samples] = [[0.0, 0.0]] * (samples-remaining)
-                        
-                    # Adjust the position
-                    current_pos += samples
-
-
-                    # DEBUG send outdata to q2
-                    q2.put_nowait(outdata.copy())
-                    
-                    # Record the microphone
-                    frame_buffer.put(indata)
-
-                    # DEBUG send the microphone data straight to the queue
-                    #q.put_nowait(indata.copy())
-
-                    while frame_buffer.size() >= samples_per_frame:
-                        # Pass complete frames to another thread for processing
-                        frame = frame_buffer.get(samples_per_frame)
-                        q.put_nowait(frame)
-
-                    if current_pos >= len(self._backing_track_pcm):
-                        print("Finished playing backing track; moving to next step")
-                        step_no += 1
-                        current_pos = 0
-                        
-                    end_time = t.time()
-                    duration = end_time - start_time
-                    if duration > 2/1000:
-                        print("    thread call duration at end of step 2(ms):", round(duration*1000, 2))
-
-                        
-                # Step No 3
-                # =========
-                elif step_no == 3:
-                    if status:
-                        print(status, "in step #3; ignoring")
-                        
-                    # Play one frame's worth of silence, just to
-                    # ensure we can keep the frame size constant.
-                    outdata[:] = [[0.0, 0.0]] * samples
-                    current_pos += samples
-
-                    # Record the microphone
-                    frame_buffer.put(indata)
-                    if frame_buffer.size() >= samples_per_frame:
-                        # Pass the complete frame to another thread for processing
-                        q.put(frame_buffer.get(samples_per_frame))
-                    
-                    if current_pos >= warmup_samples:
-                        print("Finished playing a frame's worth of silence; moving to next step")
-                        step_no += 1
-                        current_pos = 0
-                    
-
+            if v.state == RecordingMode.State.INTRO:
+                # Play the intro
+                if v.index+frames <= len(intro_audio):
+                    outdata[:] = intro_audio[v.index:v.index+frames]
+                    v.index += frames
                 else:
-                    print("Stopping")
+                    outdata.fill(0)
+                    remaining = len(intro_audio)-v.index
+                    outdata[:remaining] = intro_audio[:remaining]
+
+                    # Transition to RECORD
+                    v.state = RecordingMode.State.RECORD
+                    v.index = 0
+                
+            elif v.state == RecordingMode.State.RECORD:
+                # Mix the backing audio
+                mixed_backing_audio = None
+                for pcm in backing_audio:
+                    pcm_section = pcm[v.index:v.index+frames]
+                    if mixed_backing_audio is None:
+                        mixed_backing_audio = pcm_section
+                    else:
+                        mixed_backing_audio += pcm_section
+                v.index += frames
+
+                # Play the backing audio
+                if len(mixed_backing_audio) == frames:
+                    outdata[:] = mixed_backing_audio[:]
+                else:
+                    outdata[:len(mixed_backing_audio)] = (
+                        mixed_backing_audio[:]
+                    )
+                    outdata[len(mixed_backing_audio):].fill(0)
+
+                # Place the input into the ring buffer, from where it will
+                # be processed in a non-time-critical thread.  Only save
+                # the desired duration of audio
+                if v.recorded_length + frames < desired_samples:
+                    self._ring_buffer.put(indata)
+                    v.recorded_length += frames
+                else:
+                    # This is the last section of audio we need
+                    remaining = desired_samples - v.recorded_length
+                    self._ring_buffer.put(indata[:remaining])
+                    v.recorded_length += remaining
                     raise sd.CallbackStop
-                    
 
-            if stream.cpu_load > 0.2:
-                print("CPU Load above 20% during playback")
+        def callback_finished():
+            self._finished = True
+            deferred.callback(self._recording_audio_id)
 
-            end_time = t.time()
-            duration = end_time - start_time
-            if duration > 2/1000:
-                print("    thread call duration (ms):", round(duration*1000, 2))
-
-
-
-        # Step number indicates where we are in the recording process
-        # 0: play starting sound
-        # 1: silence used for warming up the encoder
-        # 2: backing track and recording
-        # 3: silence + recording to ensure we finish on a clean
-        step_no = 0
-
-        # Step 0: Set the current position for the sound being played
-        current_pos = 0
-
-        
-        # Step 1: Encoder warmup
-        # Obtain the algorithmic delay of the Opus encoder
-        delay = opus.opus_int32()
-        result = opus.opus_encoder_ctl(
-            self._encoder,
-            opus.OPUS_GET_LOOKAHEAD_REQUEST,
-            ctypes.pointer(delay)
-        )
-        if result != opus.OPUS_OK:
-            raise Exception("Failed in OPUS_GET_LOOKAHEAD_REQUEST")
-        delay_samples = delay.value
-
-        # The encoder guidelines recommend that at least an extra 120
-        # samples is added to delay_samples.  See
-        # https://tools.ietf.org/html/rfc7845#page-27
-        extra_samples = 120
-        warmup_samples = delay_samples + extra_samples 
-
-        # Create a buffer capable of holding two frames 
-        samples_per_frame = 960
-        channels = 2
-        frame_buffer = FrameBuffer(
-            48000, # one second FIXME
-            channels
-        )
-
-        
-        # Create an event for communication between threads
-        finished = threading.Event()
-
-        
-        # Create an input-output sounddevice stream
+        # Create Stream
         print("Creating stream")
-        stream = sd.Stream(
-            samplerate=48000,
-            #channels=channels,
-            dtype=numpy.float32,
-            latency=100/1000, #"high",
-            callback=callback,
-            finished_callback=finished.set
+        self._stream = sd.Stream(
+            samplerate = 48000,
+            channels = 1,
+            dtype = numpy.float32,
+            latency = 200/1000,
+            callback = callback,
+            finished_callback = callback_finished
         )
 
-        with stream:
-            finished.wait()  # Wait until playback is finished
+        # Start the recording
+        self._stream.start()
 
-        # Store the final number of pre-skip warmup samples
-        self._pre_skip = warmup_samples
-        
+        # FIXME
+        # # Close the writer before closing down the file
+        # writer.close()
+        # f.close()
 
+        return deferred
 
-    def write_opus(self, output_filename):
-        # Go through the frames and save them as an OggOpus file
-
-        # Create a new stream state with a random serial number
-        stream_state = opus_helpers.create_stream_state()
-
-        # Create a packet (reused for each pass)
-        ogg_packet = ogg.ogg_packet()
-
-        # Flag to indicate the start of stream
-        start_of_stream = 1
-
-        # Packet counter
-        count_packets = 0
-
-        # PCM samples counter
-        count_samples = 0
-
-        # Allocate memory for a page
-        ogg_page = ogg.ogg_page()
-
-        # Allocate storage space for the encoded frame.  4,000 bytes
-        # is the recommended maximum buffer size for the encoded
-        # frame.
-        max_bytes_in_encoded_frame = opus.opus_int32(4000)
-        EncodedFrameType = ctypes.c_ubyte * max_bytes_in_encoded_frame.value
-        encoded_frame = EncodedFrameType()
-
-        # Create a pointer to the first byte of the buffer for the
-        # encoded frame.
-        encoded_frame_ptr = ctypes.cast(
-            ctypes.pointer(encoded_frame),
-            ctypes.POINTER(ctypes.c_ubyte)
-        )
-
-        
-        # Open file for writing
-        f = open(output_filename, "wb")
-
-        # Headers
-        # =======
-        
-        # Specify the identification header
-        id_header = opus.make_identification_header(
-            pre_skip = self._pre_skip
-        )
-
-        # Specify the packet containing the identification header
-        ogg_packet.packet = ctypes.cast(id_header, ogg.c_uchar_p)
-        ogg_packet.bytes = len(id_header)
-        ogg_packet.b_o_s = start_of_stream
-        ogg_packet.e_o_s = 0
-        ogg_packet.granulepos = 0
-        ogg_packet.packetno = count_packets
-        start_of_stream = 0
-        count_packets += 1
-
-        # Write the header
-        result = ogg.ogg_stream_packetin(
-            stream_state,
-            ogg_packet
-        )
-
-        if result != 0:
-            raise Exception("Failed to write Opus identification header")
-
-
-        # Specify the comment header
-        comment_header = opus.make_comment_header()
-
-        # Specify the packet containing the identification header
-        ogg_packet.packet = ctypes.cast(comment_header, ogg.c_uchar_p)
-        ogg_packet.bytes = len(comment_header)
-        ogg_packet.b_o_s = start_of_stream
-        ogg_packet.e_o_s = 0
-        ogg_packet.granulepos = 0
-        ogg_packet.packetno = count_packets
-        count_packets += 1
-
-        # Write the header
-        result = ogg.ogg_stream_packetin(
-            stream_state,
-            ogg_packet
-        )
-
-        if result != 0:
-            raise Exception("Failed to write Opus comment header")
-
-
-        # Write out pages to file
-        while ogg.ogg_stream_flush(ctypes.pointer(stream_state),
-                                   ctypes.pointer(ogg_page)) != 0:
-            # Write page
-            print("Writing header page")
-            f.write(bytes(ogg_page.header[0:ogg_page.header_len]))
-            f.write(bytes(ogg_page.body[0:ogg_page.body_len]))
-
+    def _load_intro_audio(self):
+        return self._load_audio(self._intro_audio_filename)
             
-        # Frames
-        # ======
-
-        # Loop through the PCM frames in the queue
-        while not q.empty():
-            # Get the frame from the queue
-            frame_pcm = q.get_nowait()
-
-            # Convert to opus_int16
-            frame_pcm = numpy.array(frame_pcm * 2**15, dtype=opus.opus_int16) 
-
-            # Create a pointer to the start of the frame's data
-            source_ptr = frame_pcm.ctypes.data_as(ctypes.c_void_p)
-            
-            #print("Processing frame at sourcePtr ", sourcePtr.value)
-
-            # Check if we have enough source data remaining to process at
-            # the current frame size
-            samples_per_frame = 960
-            assert len(frame_pcm) == samples_per_frame
-
-            # Encode the audio
-            #print("Encoding audio")
-            num_bytes = opus.opus_encode(
-                self._encoder,
-                ctypes.cast(source_ptr, ctypes.POINTER(opus.opus_int16)),
-                samples_per_frame,
-                encoded_frame_ptr,
-                max_bytes_in_encoded_frame
-            )
-            #print("num_bytes: ", num_bytes)
-
-            # Check for any errors during encoding
-            if num_bytes < 0:
-                raise Exception("Encoder error detected: "+
-                                opus.opus_strerror(num_bytes).decode("utf"))
-
-            # Writing OggOpus
-            # ===============
-
-            # Increase the number of samples
-            count_samples += samples_per_frame
-
-            # Place data into the packet
-            ogg_packet.packet = encoded_frame_ptr
-            ogg_packet.bytes = num_bytes
-            ogg_packet.b_o_s = start_of_stream
-            ogg_packet.e_o_s = 0 # FIXME: It needs to end!
-            ogg_packet.granulepos = count_samples
-            ogg_packet.packetno = count_packets
-
-            # No longer the start of stream
-            start_of_stream = 0
-
-            # Increase the number of packets
-            count_packets += 1
-
-            # Place the packet in to the stream
-            result = ogg.ogg_stream_packetin(
-                stream_state,
-                ogg_packet
-            )
-
-            # Check for errors
-            if result != 0:
-                raise Exception("Error while placing packet in Ogg stream")
-
-            # Write out pages to file
-            while ogg.ogg_stream_pageout(ctypes.pointer(stream_state),
-                                         ctypes.pointer(ogg_page)) != 0:
-                # Write page
-                print("Writing page")
-                f.write(bytes(ogg_page.header[0:ogg_page.header_len]))
-                f.write(bytes(ogg_page.body[0:ogg_page.body_len]))
-
-                
-        # Force the writing of the final page
-        while ogg.ogg_stream_flush(ctypes.pointer(stream_state),
-                                   ctypes.pointer(ogg_page)) != 0:
-            # Write page
-            print("Writing final page")
-            f.write(bytes(ogg_page.header[0:ogg_page.header_len]))
-            f.write(bytes(ogg_page.body[0:ogg_page.body_len]))
-
-                
-        # Make sure the queue is empty
-        if not q.empty():
-            print("WARNING: Failed to completely process all the recorded frames")
+    def _load_backing_audio(self):
+        paths = [self._session_files.get_path_audio_id(audio_id)
+                 for audio_id in self._backing_audio_ids]
         
-        # Finished
-        f.close()
-        print("Finished writing file")
+        backing_audio = [self._load_audio(path)
+                         for path in paths]
 
+        # Check that backing audio PCMs are all the same length
+        lengths = numpy.array([len(pcm) for pcm in backing_audio])
+        if not numpy.all(lengths == lengths[0]):
+            print(lengths)
+            print(lengths == lengths[0])
+            raise Exception("Backing audio files were not all the same length")
 
-    def write_wave(self, filename):
-        print("Saving wav:", filename)
+        return backing_audio
 
-        wave_file = wave.open(filename, "wb")
-        wave_file.setnchannels(2) # FIXME
-        wave_file.setsampwidth(2) # int16
-        wave_file.setframerate(48000) # FIXME
+    def _load_audio(self, path):
+        opus_file = pyogg.OpusFile(str(path))
+        pcm = opus_file.as_array()
 
+        # Normalise
+        pcm_float = pcm.astype(numpy.float32)
+        pcm_float /= 2**16
 
-        filename2="non-adjusted-"+filename
-        print("Saving wav:", filename2)
+        # Convert to mono
+        pcm_float = numpy.mean(pcm_float, axis=1)
+        pcm_float = numpy.reshape(pcm_float, (-1,1))
 
-        wave_file2 = wave.open(filename2, "wb")
-        wave_file2.setnchannels(2) # FIXME
-        wave_file2.setsampwidth(2) # int16
-        wave_file2.setframerate(48000) # FIXME
+        return pcm_float
 
-        
-        # Calculate the number of samples to drop for the latency
-        # adjustment
-        latency_samples = int(self._latency * 48000)
-        print("Dropping", latency_samples, "samples to adjust for latency")
-        
-        # Loop through queue
-        dropped_samples = 0
-        while not q.empty():
-            pcm = q.get_nowait()
-            # Convert to int16
-            pcm = pcm * (2**15-1)
-            pcm = pcm.astype(numpy.int16)
-            wave_file2.writeframes(pcm)
-            
-            samples_remaining_to_drop = latency_samples - dropped_samples
-            if samples_remaining_to_drop > 0:
-                if samples_remaining_to_drop >= len(pcm):
-                    # drop this whole frame
-                    dropped_samples += len(pcm)
-                    continue
-                else:
-                    # drop part of this frame
-                    pcm = pcm[samples_remaining_to_drop:]
-                    dropped_samples += samples_remaining_to_drop
-            wave_file.writeframes(pcm)
+    def _write_audio(self):
+        print("in _write_audio")
+        # Get audio from ring buffer
+        length = len(self._ring_buffer)
+        channels = 1 # mono
+        shape = (length, channels)
+        pcm_float = numpy.zeros(shape, dtype=numpy.float32)
+        self._ring_buffer.get(pcm_float)
 
-        wave_file.close()
-        wave_file2.close()
+        # Convert audio to 16-bit ints
+        pcm_float *= 2**16-1
+        pcm_int16 = pcm_float.astype(numpy.int16)
+        pcm_bytes = pcm_int16.tobytes()
 
+        # Write audio
+        self._writer.encode(pcm_bytes)
 
+        # Check if we've finished
+        if self._finished:
+            print("Closing")
+            self._writer.close()
+            self._f.close()
 
-        filename2 = "output-"+filename
-        print("Saving wav:", filename2)
-
-        wave_file = wave.open(filename2, "wb")
-        wave_file.setnchannels(2) # FIXME
-        wave_file.setsampwidth(2) # int16
-        wave_file.setframerate(48000) # FIXME
-        # Convert to int16
-
-        # Loop through queue
-        while not q2.empty():
-            pcm = q2.get_nowait()
-            pcm = pcm * (2**15-1)
-            pcm = pcm.astype(numpy.int16)
-            wave_file.writeframes(pcm)
-
-        wave_file.close()
-        
-            
-
-
-if __name__ == "__main__":
-    #backing_track_filename = "left-right-demo-5s.opus"
-    #backing_track_filename = "sounds/one-click.opus"
-    backing_track_filename = "sounds/rhythm.opus"
-    output_filename = "recording"
-
-    rec = RecordingMode()
-    print("Preparing...")
-    rec.set_latency_adjustment(210/1000) # FIXME
-    rec.prepare(backing_track_filename)
-    print("Recording...")
-    rec.record()
-    print("Writing...")
-    rec.write_wave(output_filename+".wav")
-    #rec.write_opus(output_filename+".opus")
     
-    print("Finished.")
+        
+if __name__ == "__main__":
+    # Create a context dictionary
+    context = {}
+
+    # Add reactor to context
+    context["reactor"] = reactor
+
+    # Create SessionFiles
+    session_files = SessionFiles(Path.home())
+    context["session_files"] = session_files
+
+    # Add latency estimate to context
+    context["recording_latency"] = 335/1000 # seconds
+    
+    # Create RecordingMode
+    rec_mode = RecordingMode(
+        backing_audio_ids=[99],
+        recording_audio_id=None,
+        host=None,
+        port=None,
+        context=context
+    )
+
+    d = rec_mode.record()
+    
+    def on_success(audio_id):
+        print(f"Recording finished successfully for audio_id {audio_id}")
+        reactor = context["reactor"]
+        print("Stopping reactor")
+        reactor.stop()
+    d.addCallback(on_success)
+    
+    def on_error(error):
+        print("Recording failed:", error)
+    d.addErrback(on_error)
+
+    # Give the reactor something to do, otherwise it partially shuts
+    # down
+    def print_running():
+        print("The reactor is running")
+    looping_call = LoopingCall(print_running)
+    def start_looping():
+        looping_call.start(1)
+    reactor.callWhenRunning(start_looping)
+
+    # Start reactor
+    print("Starting reactor")
+    reactor = context["reactor"]
+    reactor.run()
+    
+    print("Finished")

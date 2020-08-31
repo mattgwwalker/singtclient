@@ -5,3 +5,6 @@ class SessionFiles:
 
         # Ensure directories exist
         self.session_dir.mkdir(exist_ok=True, parents=True)
+
+    def get_path_audio_id(self, audio_id):
+        return self.session_dir / f"{audio_id}.opus"

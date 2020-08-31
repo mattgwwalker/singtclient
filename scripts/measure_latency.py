@@ -32,5 +32,5 @@ if __name__ == "__main__":
 
     measure_latency(
         #desired_latency="high"
-        desired_latency=100/1000 # seconds
+        desired_latency=200/1000 # seconds
     )

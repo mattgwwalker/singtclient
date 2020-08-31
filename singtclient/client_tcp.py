@@ -89,7 +89,9 @@ class TCPClient(Protocol):
         try:
             function = self._commands[command]
         except KeyError:
-            raise Exception(f"No function was registered against the command '{command}'")
+            # Swallow this error; it doesn't need to propagate
+            log.warn(f"No function was registered against the command '{command}'")
+            return
 
         try:
             function(decoded_packet)
@@ -98,7 +100,6 @@ class TCPClient(Protocol):
 
         
     def _command_download(self, data):
-        print("data:", data)
         reactor = self._context["reactor"]
         session_files = self._context["session_files"]
         audio_id = data["audio_id"]
@@ -128,6 +129,7 @@ class TCPClient(Protocol):
             
         def on_error(error):
             # File failed to downloaded succesfully, tell the server
+            log.error(f"Failed to download file at '{url}': {error}")
             result = {
                 "command": "update_downloaded",
                 "audio_id": audio_id,
