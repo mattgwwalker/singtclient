@@ -21,7 +21,8 @@ class RecordingMode:
         RECORD = 20
         
     
-    def __init__(self, backing_audio_ids, recording_audio_id, host, port, context):
+    def __init__(self, file_like, backing_audio_ids, recording_audio_id, context):
+        self._file_like = file_like
         self._backing_audio_ids = backing_audio_ids
         self._recording_audio_id = recording_audio_id
         self._context = context
@@ -47,16 +48,6 @@ class RecordingMode:
             dtype=numpy.float32
         )
 
-        # DEBUG file to output to
-        self._f = open("out.opus", "wb")
-        writer = pyogg.OggOpusWriter(self._f, custom_pre_skip=335*48)
-        writer.set_application("audio")
-        writer.set_sampling_frequency(self.samples_per_second)
-        writer.set_channels(1)
-        writer.set_frame_size(20) # milliseconds
-        self._writer = writer
-
-
         self._finished = False
         
         
@@ -80,8 +71,17 @@ class RecordingMode:
             len(backing_audio[0])
             + recording_latency_samples
         )
-        print("desired_duration:", desired_samples)
 
+        # Create an OggOpusWriter witht the file_like given in the
+        # constructor.
+        self._writer = pyogg.OggOpusWriter(
+            self._file_like,
+            custom_pre_skip=recording_latency_samples
+        )
+        self._writer.set_application("audio")
+        self._writer.set_sampling_frequency(self.samples_per_second)
+        self._writer.set_channels(1)
+        self._writer.set_frame_size(20) # milliseconds
         
         # Create a dict for variables used in callback
         class Variables:
@@ -97,7 +97,7 @@ class RecordingMode:
         reactor = self._context["reactor"]
         reactor.callWhenRunning(lambda : looping_call.start(20/1000))
         
-        # DEBUG Playback backing audio
+        # Sounddevice callback for audio processing
         def callback(indata, outdata, frames, time, status):
             if status:
                 print(status)
@@ -154,7 +154,6 @@ class RecordingMode:
             deferred.callback(self._recording_audio_id)
 
         # Create Stream
-        print("Creating stream")
         self._stream = sd.Stream(
             samplerate = 48000,
             channels = 1,
@@ -164,13 +163,9 @@ class RecordingMode:
             finished_callback = callback_finished
         )
 
-        # Start the recording
+        # Start the recording.  Stop called by rasing sd.CallbackStop
+        # in callback when sufficient audio has been recorded.
         self._stream.start()
-
-        # FIXME
-        # # Close the writer before closing down the file
-        # writer.close()
-        # f.close()
 
         return deferred
 
@@ -187,8 +182,6 @@ class RecordingMode:
         # Check that backing audio PCMs are all the same length
         lengths = numpy.array([len(pcm) for pcm in backing_audio])
         if not numpy.all(lengths == lengths[0]):
-            print(lengths)
-            print(lengths == lengths[0])
             raise Exception("Backing audio files were not all the same length")
 
         return backing_audio
@@ -208,7 +201,6 @@ class RecordingMode:
         return pcm_float
 
     def _write_audio(self):
-        print("in _write_audio")
         # Get audio from ring buffer
         length = len(self._ring_buffer)
         channels = 1 # mono
@@ -226,12 +218,9 @@ class RecordingMode:
 
         # Check if we've finished
         if self._finished:
-            print("Closing")
             self._writer.close()
-            self._f.close()
 
-    
-        
+            
 if __name__ == "__main__":
     # Create a context dictionary
     context = {}
@@ -245,13 +234,15 @@ if __name__ == "__main__":
 
     # Add latency estimate to context
     context["recording_latency"] = 335/1000 # seconds
+
+    # Open file for writing
+    f = open("out.opus", "wb")
     
     # Create RecordingMode
     rec_mode = RecordingMode(
+        f,
         backing_audio_ids=[99],
-        recording_audio_id=None,
-        host=None,
-        port=None,
+        recording_audio_id=100,
         context=context
     )
 
