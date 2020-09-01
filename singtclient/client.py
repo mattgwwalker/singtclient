@@ -59,7 +59,7 @@ def init_logging(context):
     globalLogBeginner.beginLoggingTo(logtargets)
 
     # ASCII-art title
-    title = art.text2art("Singt")
+    title = art.text2art("Singt Client")
     log.info("\n"+title)
 
 def init_database(context):
