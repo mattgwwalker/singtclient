@@ -94,7 +94,7 @@ class RecordingMode:
         # Create a dict for variables used in callback
         class Variables:
             def __init__(self):
-                self.state = RecordingMode.State.RECORD
+                self.state = RecordingMode.State.INTRO
                 self.index = 0
                 self.recorded_length = 0
                 self.backing_length = len(backing_audio[0])
@@ -116,9 +116,9 @@ class RecordingMode:
                     outdata[:] = intro_audio[v.index:v.index+frames]
                     v.index += frames
                 else:
-                    outdata.fill(0)
                     remaining = len(intro_audio)-v.index
                     outdata[:remaining] = intro_audio[:remaining]
+                    outdata[remaining:].fill(0)
 
                     # Transition to RECORD
                     v.state = RecordingMode.State.RECORD
@@ -225,9 +225,7 @@ class RecordingMode:
 
         # Check if we've finished
         if self._finished:
-            print("Closing OggOpus stream and calling deferred")
             self._writer.close()
-            print("Stopping looping call to write_audio")
             self._looping_call.stop()
             self._deferred.callback(self._recording_audio_id)
 
