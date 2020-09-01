@@ -1,4 +1,3 @@
-from pathlib import Path
 from enum import Enum
 import math
 import threading
@@ -8,11 +7,9 @@ import pkg_resources
 import pyogg
 import sounddevice as sd
 from singtcommon import RingBuffer
-from twisted.internet import reactor
 from twisted.internet import defer
 from twisted.internet.task import LoopingCall
 
-from .session_files import SessionFiles
 
 # Start a logger with a namespace for a particular subsystem of our application.
 from twisted.logger import Logger
@@ -234,57 +231,3 @@ class RecordingMode:
             self._looping_call.stop()
             self._deferred.callback(self._recording_audio_id)
 
-            
-if __name__ == "__main__":
-    # Create a context dictionary
-    context = {}
-
-    # Add reactor to context
-    context["reactor"] = reactor
-
-    # Create SessionFiles
-    session_files = SessionFiles(Path.home())
-    context["session_files"] = session_files
-
-    # Add latency estimate to context
-    context["recording_latency"] = 335/1000 # seconds
-
-    # Open file for writing
-    f = open("out.opus", "wb")
-    
-    # Create RecordingMode
-    rec_mode = RecordingMode(
-        f,
-        backing_audio_ids=[99],
-        recording_audio_id=100,
-        context=context
-    )
-
-    d = rec_mode.record()
-    
-    def on_success(audio_id):
-        print(f"Recording finished successfully for audio_id {audio_id}")
-        reactor = context["reactor"]
-        print("Stopping reactor")
-        reactor.stop()
-    d.addCallback(on_success)
-    
-    def on_error(error):
-        print("Recording failed:", error)
-    d.addErrback(on_error)
-
-    # Give the reactor something to do, otherwise it partially shuts
-    # down
-    def print_running():
-        print("The reactor is running")
-    looping_call = LoopingCall(print_running)
-    def start_looping():
-        looping_call.start(1)
-    reactor.callWhenRunning(start_looping)
-
-    # Start reactor
-    print("Starting reactor")
-    reactor = context["reactor"]
-    reactor.run()
-    
-    print("Finished")
