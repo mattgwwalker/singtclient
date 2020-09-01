@@ -22,7 +22,6 @@ class FileTransportClient(Protocol):
         f = open(file_path, "rb")
         
         # Send initial message
-        print("Sending initial command message")
         message = {
             "command": "receive_file",
             "audio_id": audio_id
@@ -45,22 +44,27 @@ class FileTransportClient(Protocol):
                 # Write the next chunk
                 data = b"DATA" + data
                 self._packetizer.write_bytes(data)
-            
-        
 
-file_path = Path("/Users/matthew/Desktop/VirtualChoir/Sounds/psallite.opus")
-audio_id = 1
-        
-def gotProtocol(p):
-    p.send_file(file_path, audio_id)
+        # Close the connection
+        self.transport.loseConnection()
 
-port = 2000
-point = TCP4ClientEndpoint(reactor, "127.0.0.1", port)
-d = connectProtocol(point, FileTransportClient())
-d.addCallback(gotProtocol)
+    def open(self, audio_id):
+        # Send initial message
+        message = {
+            "command": "receive_file",
+            "audio_id": audio_id
+        }
+        message_json = json.dumps(message) 
+        self._packetizer.write(message_json)
 
-def on_error(error):
-    print("Error:", error)
-d.addErrback(on_error)
+    def close(self):
+        data = b"END"
+        self._packetizer.write_bytes(data)
 
-reactor.run()
+        # Close the connection
+        self.transport.loseConnection()
+
+    def write(self, data):
+        data = b"DATA" + data
+        self._packetizer.write_bytes(data)
+    
