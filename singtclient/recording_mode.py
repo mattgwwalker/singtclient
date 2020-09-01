@@ -12,7 +12,11 @@ from twisted.internet import reactor
 from twisted.internet import defer
 from twisted.internet.task import LoopingCall
 
-from session_files import SessionFiles
+from .session_files import SessionFiles
+
+# Start a logger with a namespace for a particular subsystem of our application.
+from twisted.logger import Logger
+log = Logger("recording_mode")
 
 
 class RecordingMode:
@@ -54,7 +58,7 @@ class RecordingMode:
         
     def record(self):
         # Create deferred to return
-        deferred = defer.Deferred()
+        self._deferred = defer.Deferred()
 
         # Load the intro audio
         intro_audio = self._load_intro_audio()
@@ -63,7 +67,14 @@ class RecordingMode:
         backing_audio = self._load_backing_audio()
 
         # Get the recording latency and calculate the desired duration
-        recording_latency_s = context["recording_latency"]
+        try:
+            recording_latency_s = self._context["recording_latency"]
+        except KeyError:
+            log.error(
+                "Recording latency was not available in the current "+
+                "context.  Assuming zero latency."
+            )
+            recording_latency_s = 0
         recording_latency_samples = int(
             recording_latency_s * self.samples_per_second
         )
@@ -93,9 +104,9 @@ class RecordingMode:
         v = Variables()
 
         # Start processing the audio
-        looping_call = LoopingCall(self._write_audio)
+        self._looping_call = LoopingCall(self._write_audio)
         reactor = self._context["reactor"]
-        reactor.callWhenRunning(lambda : looping_call.start(20/1000))
+        reactor.callWhenRunning(lambda : self._looping_call.start(20/1000))
         
         # Sounddevice callback for audio processing
         def callback(indata, outdata, frames, time, status):
@@ -151,7 +162,6 @@ class RecordingMode:
 
         def callback_finished():
             self._finished = True
-            deferred.callback(self._recording_audio_id)
 
         # Create Stream
         self._stream = sd.Stream(
@@ -167,7 +177,7 @@ class RecordingMode:
         # in callback when sufficient audio has been recorded.
         self._stream.start()
 
-        return deferred
+        return self._deferred
 
     def _load_intro_audio(self):
         return self._load_audio(self._intro_audio_filename)
@@ -218,7 +228,11 @@ class RecordingMode:
 
         # Check if we've finished
         if self._finished:
+            print("Closing OggOpus stream and calling deferred")
             self._writer.close()
+            print("Stopping looping call to write_audio")
+            self._looping_call.stop()
+            self._deferred.callback(self._recording_audio_id)
 
             
 if __name__ == "__main__":

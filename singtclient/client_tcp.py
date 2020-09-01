@@ -2,13 +2,16 @@ import json
 import struct
 
 from twisted.internet.protocol import Protocol
-from twisted.logger import Logger
 from twisted.web.client import HTTPDownloader
 from twisted.web.client import URI
 
 from singtcommon import TCPPacketizer
 
+from .client_file import FileTransportClient
+from .recording_mode import RecordingMode
+
 # Start a logger with a namespace for a particular subsystem of our application.
+from twisted.logger import Logger
 log = Logger("client_tcp")
 
 
@@ -32,6 +35,7 @@ class TCPClient(Protocol):
         
     def _register_commands(self):
         self.register_command("download", self._command_download)
+        self.register_command("record", self._command_record)
 
         
     def connectionMade(self):
@@ -144,3 +148,36 @@ class TCPClient(Protocol):
 
         return d
 
+    def _command_record(self, data):
+        backing_audio_ids = data["backing_audio_ids"]
+        recording_audio_id = data["recording_audio_id"]
+
+        print("'Record' command received with")
+        print("backing_audio_ids:", backing_audio_ids)
+        print("recording_audio_id:", recording_audio_id)
+
+        # Shut down the UDPClient if it's running
+        
+        # TODO: Create a FileTransportClient
+
+        # Open a file for output
+        out_file = open("out.opus", "wb")
+        
+        # Create a recording mode
+        recording_mode = RecordingMode(
+            out_file,
+            backing_audio_ids,
+            recording_audio_id,
+            self._context
+        )
+
+        d = recording_mode.record()
+
+        def close_file(audio_id):
+            print("Closing file")
+            # Close file
+            out_file.close()
+        d.addBoth(close_file)
+
+        return d
+            

@@ -27,8 +27,8 @@ class Command:
         # TODO: This needs to be controlled and not part of this connection
         # UDP
         # 0 means any port, we don't care in this case
-        udp_client_factory = self._context["udp_client_factory"]
-        udp_client = udp_client_factory(address, 12345, self._context)
-        reactor.listenUDP(0, udp_client)
+        # udp_client_factory = self._context["udp_client_factory"]
+        # udp_client = udp_client_factory(address, 12345, self._context)
+        # reactor.listenUDP(0, udp_client)
 
         return d
