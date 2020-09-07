@@ -17,6 +17,7 @@ class Command:
         reactor = self._context["reactor"]
         point = TCP4ClientEndpoint(reactor, address, port)
         client = TCPClient(username, self._context)
+        self._context["tcp_client"] = client
         d = connectProtocol(point, client)
 
         def on_error(error):

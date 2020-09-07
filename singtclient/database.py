@@ -38,7 +38,7 @@ class Database:
                 log.info("Database successfully initialised")
                 return dbpool
             def on_error(data):
-                log.error("Failed to initialise the database: "+str(data))
+                log.error("Failed to initialise the client's database: "+str(data))
                 reactor = context["reactor"]
                 reactor.stop()
 

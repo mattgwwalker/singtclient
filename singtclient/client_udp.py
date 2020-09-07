@@ -49,6 +49,13 @@ class UDPClientBase(DatagramProtocol):
             (self._host, self._port)
         )
 
+    def announce(self, client_id):
+        # Announce to UDP server
+        self._udp_packetizer.write_with_seq_no(
+            struct.pack(">Q", client_id),
+            -1
+        )
+
 
     def datagramReceived(self, data, addr):
         #print("Received UDP packet from", addr)
